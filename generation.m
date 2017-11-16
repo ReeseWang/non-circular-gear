@@ -13,6 +13,9 @@ toolRadius = 0.3;                               % Forming tool radius
 %% Read input, interpolate, and generate pitch curves.
 readfp;
 interpAngles = polData(1,1):angTol/pi*180:polData(end,1);
+if interpAngles(end) < polData(end,1)
+    interpAngles = [interpAngles polData(end,1)];
+end
 interpAngles = interpAngles';
 polDataInterp = [interpAngles, spline(polData(:,1), polData(:,2), interpAngles)];
 polDataInterp(:,3) = polDataInterp(:,1)*pi/180;
