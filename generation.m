@@ -7,9 +7,10 @@ addDist = 0.8 * module;                         % Addendum distance
 dedDist = 1 * module;                           % Dedendum distance
 posLimiterLeng = 3;                             % Position limiter length
 errTol = 1e-4;                                  % Tolerance
-angTol = 0.5*pi/180;                                   % Angular tolerance, rad
+angTol = 0.5*pi/180;                            % Angular tolerance, rad
+toolRadius = 0.2;                               % Forming tool radius
 
-
+%% Read input, interpolate, and generate pitch curves.
 readfp;
 interpAngles = polData(1,1):angTol/pi*180:polData(end,1);
 interpAngles = interpAngles';
@@ -56,6 +57,7 @@ followerPitchCl = [
 %plotc(followerPitchCl(:,1)+a, followerPitchCl(:,2));
 %plotc(driverPitchCl(:,1), driverPitchCl(:,2));
 
+%% Generating rack teeth
 zigZagHalfHight = pitch/4/tan(pAngle);
 temp = polyout(driverPitchCl(:,1), driverPitchCl(:,2), zigZagHalfHight, 'm');
 driverInitShape = [temp{1}{1} temp{2}{1}];
@@ -73,9 +75,12 @@ rackZigZag = ((-pitch/4:pitch/2:driverPitchLeng+pitch/2)'*[1 1]);
 for i = 1:size(rackZigZag, 1)
     rackZigZag(i,1) = zigZagHalfHight * (-1)^i;
 end
-if rackZigZag(end,1) < 0
+if rackZigZag(end,1) < 0 % Driver should drive the follower at the end
     rackZigZag = [rackZigZag; zigZagHalfHight rackZigZag(end,2) + pitch/2];
 end
+
+
+%% Generating rack shapes
 driverClip = [
     -dedDist, rackZigZag(2,2); 
     -dedDist-3*zigZagHalfHight, rackZigZag(2,2); 
@@ -96,13 +101,13 @@ followerAdd = [
     -zigZagHalfHight, rackZigZag(2,2); 
     -zigZagHalfHight, rackZigZag(end,2); 
     -addDist, rackZigZag(end,2)];
-if rackZigZag(end,1) < 0
-    driverClip(3:4,2) = rackZigZag(end-1,2);
-    followerAdd(3:4,2) = rackZigZag(end-1,2);
-else
-    followerClip(3:4,2) = rackZigZag(end-1,2);
-    driverAdd(3:4,2) = rackZigZag(end-1,2);
-end
+%if rackZigZag(end,1) < 0
+%    driverClip(3:4,2) = rackZigZag(end-1,2);
+%    followerAdd(3:4,2) = rackZigZag(end-1,2);
+%else
+%    followerClip(3:4,2) = rackZigZag(end-1,2);
+%    driverAdd(3:4,2) = rackZigZag(end-1,2);
+%end
 
 rackZigZag = [
     rackZigZag(1,:) - [0 a+posLimiterLeng];
@@ -135,6 +140,7 @@ followerRack = [temp{1}{1} temp{2}{1}];
 %plotc(followerClip(:,1)+a+followerPitch(1,1), followerClip(:,2));
 %plotc(followerRack(:,1)+a+followerPitch(1,1), followerRack(:,2));
 
+%% Begin cutting!
 %driverRack = driverRack + driverPitch(1,:);
 %followerRack = followerRack + followerPitch(1,:);
 temp = polyclip(driverInitShape, driverRack + driverPitch(1,:), 'dif');
