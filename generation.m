@@ -3,12 +3,12 @@ a = 15;                                         % Center distance
 pAngle = 22.5*pi/180;                           % Pressure Angle
 module = 1;                                     % Module
 pitch = pi * module;                            % Curve pitch
-addDist = 0.8 * module;                         % Addendum distance
-dedDist = 1 * module;                           % Dedendum distance
+addDist = 1 * module;                         % Addendum distance
+dedDist = 1.25 * module;                           % Dedendum distance
 posLimiterLeng = 3;                             % Position limiter length
 errTol = 1e-4;                                  % Tolerance
-angTol = 0.5*pi/180;                            % Angular tolerance, rad
-toolRadius = 0.2;                               % Forming tool radius
+angTol = 1*pi/180;                            % Angular tolerance, rad
+toolRadius = 0.3;                               % Forming tool radius
 
 %% Read input, interpolate, and generate pitch curves.
 readfp;
@@ -81,6 +81,20 @@ end
 
 
 %% Generating rack shapes
+maxToolRadius = (dedDist - addDist) / (1 - sin(pAngle));
+if toolRadius > maxToolRadius
+    error(['Tool fillet radius may lead to interference. '...
+        'Its radius should be lower than %.3f'], maxToolRadius)
+end
+maxToolRadius = (zigZagHalfHight - dedDist) * tan(pAngle) / tan(pi/4 - pAngle/2);
+if toolRadius > maxToolRadius
+    warning(['Tool fillet wiped top land out, decrease addendum hight or decrease tool radius. ' ...
+    'Maximum fillet radius is %.3f'], maxToolRadius)
+end
+fillet = toolRadius * [-cos([0:angTol:pi/2-pAngle pi/2-pAngle]); sin([0:angTol:pi/2-pAngle pi/2-pAngle])]' + ...
+    [-(dedDist - toolRadius), (maxToolRadius - toolRadius) * tan(pi/4 - pAngle/2)];
+fillet = fillet(fillet(:,2)>0, :);
+
 driverClip = [
     -dedDist, rackZigZag(2,2); 
     -dedDist-3*zigZagHalfHight, rackZigZag(2,2); 
@@ -89,13 +103,13 @@ driverClip = [
 followerClip = [
     dedDist, rackZigZag(1,2); 
     dedDist+3*zigZagHalfHight, rackZigZag(1,2); 
-    dedDist+3*zigZagHalfHight, rackZigZag(end,2); 
-    dedDist, rackZigZag(end,2)];
+    dedDist+3*zigZagHalfHight, rackZigZag(end-1,2); 
+    dedDist, rackZigZag(end-1,2)];
 driverAdd = [
     addDist, rackZigZag(1,2); 
     zigZagHalfHight, rackZigZag(1,2); 
-    zigZagHalfHight, rackZigZag(end,2); 
-    addDist, rackZigZag(end,2)];
+    zigZagHalfHight, rackZigZag(end-1,2); 
+    addDist, rackZigZag(end-1,2)];
 followerAdd = [
     -addDist, rackZigZag(2,2); 
     -zigZagHalfHight, rackZigZag(2,2); 
@@ -109,17 +123,41 @@ followerAdd = [
 %    driverAdd(3:4,2) = rackZigZag(end-1,2);
 %end
 
-rackZigZag = [
-    rackZigZag(1,:) - [0 a+posLimiterLeng];
-    rackZigZag;
-    rackZigZag(end,:) + [0 a+posLimiterLeng]
+driverZigZag = rackZigZag(1,:);
+followerZigZag = rackZigZag(1,:);
+for i = 2:size(rackZigZag, 1) - 1
+    if rackZigZag(i,1) < 0
+        driverZigZag = [driverZigZag; [flip(fillet,1)*diag([1 -1]); fillet]+[0 rackZigZag(i,2)]];
+        followerZigZag = [followerZigZag; rackZigZag(i,:)];
+    else
+        followerZigZag = [followerZigZag; [flip(fillet,1)*diag([-1 -1]); fillet*diag([-1 1])]+[0 rackZigZag(i,2)]];
+        driverZigZag = [driverZigZag; rackZigZag(i,:)];
+    end
+end
+driverZigZag = [driverZigZag; rackZigZag(end,:)];
+followerZigZag = [followerZigZag; rackZigZag(end,:)];
+
+%rackZigZag = [
+%    rackZigZag(1,:) - [0 a+posLimiterLeng];
+%    rackZigZag;
+%    rackZigZag(end,:) + [0 a+posLimiterLeng]
+%    ];
+driverZigZag = [
+    driverZigZag(1,:) - [0 a+posLimiterLeng];
+    driverZigZag;
+    driverZigZag(end,:) + [0 a+posLimiterLeng]
+    ];
+followerZigZag = [
+    followerZigZag(1,:) - [0 a+posLimiterLeng];
+    followerZigZag;
+    followerZigZag(end,:) + [0 a+posLimiterLeng]
     ];
 %plot(rackZigZag(:,1)+driverPitch(1,1), rackZigZag(:,2))
 
 driverRack = [
-    rackZigZag(1,:) + [3*zigZagHalfHight 0];
-    rackZigZag;
-    [rackZigZag(1,1) + 3*zigZagHalfHight, rackZigZag(end,2)]
+    driverZigZag(1,:) + [3*zigZagHalfHight 0];
+    driverZigZag;
+    [driverZigZag(1,1) + 3*zigZagHalfHight, driverZigZag(end,2)]
     ];
 temp = polyclip(driverRack, driverClip, 'dif');
 driverRack = [temp{1}{1} temp{2}{1}];
@@ -129,9 +167,9 @@ driverRack = [temp{1}{1} temp{2}{1}];
 %plotc(driverRack(:,1)+driverPitch(1,1), driverRack(:,2));
 
 followerRack = [
-    rackZigZag(1,:) - [zigZagHalfHight 0];
-    rackZigZag;
-    [rackZigZag(1,1) - zigZagHalfHight, rackZigZag(end,2)]
+    followerZigZag(1,:) - [zigZagHalfHight 0];
+    followerZigZag;
+    [followerZigZag(1,1) - zigZagHalfHight, followerZigZag(end,2)]
     ];
 temp = polyclip(followerRack, followerClip, 'dif');
 followerRack = [temp{1}{1} temp{2}{1}];
