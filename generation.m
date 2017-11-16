@@ -7,7 +7,7 @@ addDist = 1 * module;                         % Addendum distance
 dedDist = 1.25 * module;                           % Dedendum distance
 posLimiterLeng = 3;                             % Position limiter length
 errTol = 1e-4;                                  % Tolerance
-angTol = 0.5*pi/180;                            % Angular tolerance, rad
+angTol = 1*pi/180;                            % Angular tolerance, rad
 toolRadius = 0.3;                               % Forming tool radius
 
 %% Read input, interpolate, and generate pitch curves.
@@ -184,23 +184,15 @@ followerRack = [temp{1}{1} temp{2}{1}];
 %% Begin cutting!
 %driverRack = driverRack + driverPitch(1,:);
 %followerRack = followerRack + followerPitch(1,:);
-rackDir = (driverPitch(2,:) - driverPitch(1,:) + ...
-    followerPitch(2,:) - followerPitch(1,:)) * [0 -1; 1 0];
-driverRackNow = rotPolygon(driverRack, [0 0], rackDir(1), rackDir(2)) + driverPitch(1,:);
-followerRackNow = rotPolygon(followerRack, [0 0], rackDir(1), rackDir(2)) + followerPitch(1,:);
-temp = polyclip(driverInitShape, driverRackNow, 'dif');
-driverProfile = [temp{1}{1} temp{2}{1}];
-temp = polyclip(followerInitShape, followerRackNow, 'dif');
-followerProfile = [temp{1}{1} temp{2}{1}];
 
 f = figure;
 ax = axes(f);
 set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
 hold all
-dph = fill(driverProfile(:,1), driverProfile(:,2), 'y');
-fph = fill(followerProfile(:,1)+a, followerProfile(:,2), 'r');
-dpr = plotc(driverRackNow(:,1), driverRackNow(:,2));
-fpr = plotc(followerRackNow(:,1)+a, followerRackNow(:,2));
+dph = fill(driverInitShape(:,1), driverInitShape(:,2), 'y');
+fph = fill(followerInitShape(:,1)+a, followerInitShape(:,2), 'r');
+dpr = plotc(driverRack(:,1)+driverPitch(1,1), driverRack(:,2));
+fpr = plotc(followerRack(:,1)+a+followerPitch(1,1), followerRack(:,2));
 dpc = plotc(driverPitchCl(:,1), driverPitchCl(:,2), '--');
 fpc = plotc(followerPitchCl(:,1)+a, followerPitchCl(:,2), '--');
 rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
@@ -208,23 +200,36 @@ rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1]);
 drawnow
 
 dispAngle = 0;
-for i = 2:length(driverPitch) - 1
-    if floor(interpAngles(i)) > dispAngle || i == length(driverPitch)
-        drawnow
-        dispAngle = floor(interpAngles(i));
+for i = 1:length(driverPitch)
+    if i == 1
+        driverPitchNow = driverPitch;
+        followerPitchNow = followerPitch;
+        driverPitchClNow = driverPitchCl;
+        followerPitchClNow = followerPitchCl;
+        driverProfile = driverInitShape;
+        followerProfile = followerInitShape;
+    else
+        driverPitchNow = rotPolygon(driverPitch, [0 0], driverPitch(i,1), -driverPitch(i,2));
+        followerPitchNow = rotPolygon(followerPitch, [0 0], -followerPitch(i,1), followerPitch(i,2));
+        driverPitchClNow = rotPolygon(driverPitchCl, [0 0], driverPitch(i,1), -driverPitch(i,2));
+        followerPitchClNow = rotPolygon(followerPitchCl, [0 0], -followerPitch(i,1), followerPitch(i,2));
+        driverProfile = rotPolygon(driverProfile, [0 0], driverPitchNow(i-1,1), driverPitchNow(i-1,2));
+        followerProfile = rotPolygon(followerProfile, [0 0], -followerPitchNow(i-1,1), -followerPitchNow(i-1,2));
     end
-    driverPitchNow = rotPolygon(driverPitch, [0 0], driverPitch(i,1), -driverPitch(i,2));
-    followerPitchNow = rotPolygon(followerPitch, [0 0], -followerPitch(i,1), followerPitch(i,2));
-    driverProfile = rotPolygon(driverProfile, [0 0], driverPitchNow(i-1,1), driverPitchNow(i-1,2));
-    followerProfile = rotPolygon(followerProfile, [0 0], -followerPitchNow(i-1,1), -followerPitchNow(i-1,2));
-    driverPitchClNow = rotPolygon(driverPitchCl, [0 0], driverPitch(i,1), -driverPitch(i,2));
-    followerPitchClNow = rotPolygon(followerPitchCl, [0 0], -followerPitch(i,1), followerPitch(i,2));
 
     %pitchDist = norm(driverPitch(i,:) - driverPitch(i-1,:));
     %driverRack = driverRack + [norm(driverPitch(i,:))-norm(driverPitch(i-1,:)) -pitchDist];
     %followerRack = followerRack + [norm(driverPitch(i,:))-norm(driverPitch(i-1,:)) -pitchDist];
-    rackDir = (driverPitchNow(i+1,:) - driverPitchNow(i-1,:) + ...
-        followerPitchNow(i+1,:) - followerPitchNow(i-1,:)) * [0 -1; 1 0];
+    if i == 1
+        rackDir = (driverPitchNow(2,:) - driverPitchNow(1,:) + ...
+            followerPitchNow(2,:) - followerPitchNow(1,:)) * [0 -1; 1 0];
+    elseif i == length(driverPitch)
+        rackDir = (driverPitchNow(end,:) - driverPitchNow(end-1,:) + ...
+            followerPitchNow(end,:) - followerPitchNow(end-1,:)) * [0 -1; 1 0];
+    else
+        rackDir = (driverPitchNow(i+1,:) - driverPitchNow(i-1,:) + ...
+            followerPitchNow(i+1,:) - followerPitchNow(i-1,:)) * [0 -1; 1 0];
+    end
     driverRackNow = rotPolygon(driverRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
     followerRackNow = rotPolygon(followerRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [followerPitchNow(i,1) 0];
     temp = polyclip(driverProfile, driverRackNow, 'dif');
@@ -238,6 +243,10 @@ for i = 2:length(driverPitch) - 1
     set(fpr, 'XData', closeArray(followerRackNow(:,1))+a, 'YData', closeArray(followerRackNow(:,2)));
     set(dpc, 'XData', closeArray(driverPitchClNow(:,1)), 'YData', closeArray(driverPitchClNow(:,2)));
     set(fpc, 'XData', closeArray(followerPitchClNow(:,1)+a), 'YData', closeArray(followerPitchClNow(:,2)));
+    if floor(interpAngles(i)) > dispAngle || i == length(driverPitch)
+        drawnow
+        dispAngle = floor(interpAngles(i));
+    end
 end
 
 
