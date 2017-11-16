@@ -9,6 +9,7 @@ posLimiterLeng = 3;                             % Position limiter length
 errTol = 1e-4;                                  % Tolerance
 angTol = 1*pi/180;                            % Angular tolerance, rad
 toolRadius = 0.3;                               % Forming tool radius
+dfReverse = true;                               % Reverse the role of driver and follower (pos don't change)
 
 %% Read input, interpolate, and generate pitch curves.
 readfp;
@@ -180,6 +181,12 @@ temp = polyclip(followerRack, followerAdd, 'uni');
 followerRack = [temp{1}{1} temp{2}{1}];
 %plotc(followerClip(:,1)+a+followerPitch(1,1), followerClip(:,2));
 %plotc(followerRack(:,1)+a+followerPitch(1,1), followerRack(:,2));
+
+if dfReverse
+    temp = [-driverRack(:,1) driverRack(:,2)];
+    driverRack = [-followerRack(:,1) followerRack(:,2)];
+    followerRack = temp;
+end
 
 %% Begin cutting!
 %driverRack = driverRack + driverPitch(1,:);
