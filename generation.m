@@ -1,14 +1,14 @@
 addpath(genpath('./'))
 a = 15;                                         % Center distance
-pAngle = 22.5*pi/180;                           % Pressure Angle
+pAngle = 30*pi/180;                           % Pressure Angle
 module = 1;                                     % Module
 pitch = pi * module;                            % Curve pitch
-addDist = 1 * module;                         % Addendum distance
-dedDist = 1.25 * module;                           % Dedendum distance
+addDist = 0.9 * module;                         % Addendum distance
+dedDist = 1.1 * module;                           % Dedendum distance
 posLimiterLeng = 3;                             % Position limiter length
 errTol = 1e-4;                                  % Tolerance
 angTol = 1*pi/180;                            % Angular tolerance, rad
-toolRadius = 0.3;                               % Forming tool radius
+toolRadius = 0.2;                               % Forming tool radius
 dfReverse = true;                               % Reverse the role of driver and follower (pos don't change)
 
 %% Read input, interpolate, and generate pitch curves.
@@ -182,10 +182,15 @@ followerRack = [temp{1}{1} temp{2}{1}];
 %plotc(followerClip(:,1)+a+followerPitch(1,1), followerClip(:,2));
 %plotc(followerRack(:,1)+a+followerPitch(1,1), followerRack(:,2));
 
+contactLine = a * [-sin(pAngle) cos(pAngle)];
+contactLine = [contactLine; -contactLine];
+contactPoints = (0:pitch:pitchLengths(end))' * cos(pAngle) * [-sin(pAngle) cos(pAngle)];
 if dfReverse
     temp = [-driverRack(:,1) driverRack(:,2)];
     driverRack = [-followerRack(:,1) followerRack(:,2)];
     followerRack = temp;
+    contactLine = [-contactLine(:,1) contactLine(:,2)];
+    contactPoints = [-contactPoints(:,1) contactPoints(:,2)];
 end
 
 %% Begin cutting!
@@ -200,11 +205,15 @@ dph = fill(driverInitShape(:,1), driverInitShape(:,2), 'y');
 fph = fill(followerInitShape(:,1)+a, followerInitShape(:,2), 'r');
 dpr = plotc(driverRack(:,1)+driverPitch(1,1), driverRack(:,2));
 fpr = plotc(followerRack(:,1)+a+followerPitch(1,1), followerRack(:,2));
-dpc = plotc(driverPitchCl(:,1), driverPitchCl(:,2), '--');
-fpc = plotc(followerPitchCl(:,1)+a, followerPitchCl(:,2), '--');
+dpc = plotc(driverPitchCl(:,1), driverPitchCl(:,2), '-.');
+fpc = plotc(followerPitchCl(:,1)+a, followerPitchCl(:,2), '-.');
+cl = plot(contactLine(:,1)+driverPitch(1,1), contactLine(:,2), '--');
+temp = contactPoints(contactPoints(:,1) > -addDist & contactPoints(:,1) < addDist,:);
+cp = plot(temp(:,1)+driverPitch(1,1), temp(:,2), 'bo');
 rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
 rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1]);
 drawnow
+%pause(1)
 
 dispAngle = 0;
 for i = 1:length(driverPitch)
@@ -237,6 +246,11 @@ for i = 1:length(driverPitch)
         rackDir = (driverPitchNow(i+1,:) - driverPitchNow(i-1,:) + ...
             followerPitchNow(i+1,:) - followerPitchNow(i-1,:)) * [0 -1; 1 0];
     end
+    contactLineNow = rotPolygon(contactLine, [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
+    %contactPointsNow = contactPoints - pitchLengths(i) * cos(pAngle) / norm(contactLine(1,:)) * contactLine(1,:);
+    contactPointsNow = contactPoints - pitchLengths(i) / pitch * contactPoints(2,:);
+    contactPointsNow = contactPointsNow(contactPointsNow(:,1) > -addDist & contactPointsNow(:,1) < addDist,:);
+    contactPointsNow = rotPolygon(contactPointsNow, [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
     driverRackNow = rotPolygon(driverRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
     followerRackNow = rotPolygon(followerRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [followerPitchNow(i,1) 0];
     temp = polyclip(driverProfile, driverRackNow, 'dif');
@@ -250,6 +264,8 @@ for i = 1:length(driverPitch)
     set(fpr, 'XData', closeArray(followerRackNow(:,1))+a, 'YData', closeArray(followerRackNow(:,2)));
     set(dpc, 'XData', closeArray(driverPitchClNow(:,1)), 'YData', closeArray(driverPitchClNow(:,2)));
     set(fpc, 'XData', closeArray(followerPitchClNow(:,1)+a), 'YData', closeArray(followerPitchClNow(:,2)));
+    set(cl, 'XData', contactLineNow(:,1), 'YData', contactLineNow(:,2));
+    set(cp, 'XData', contactPointsNow(:,1), 'YData', contactPointsNow(:,2));
     if floor(interpAngles(i)) > dispAngle || i == length(driverPitch)
         drawnow
         dispAngle = floor(interpAngles(i));
