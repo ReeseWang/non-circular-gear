@@ -197,7 +197,7 @@ end
 %driverRack = driverRack + driverPitch(1,:);
 %followerRack = followerRack + followerPitch(1,:);
 
-f = figure;
+f = figure('OuterPosition', [0 0 1200 800]);
 ax = axes(f);
 set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
 hold all
@@ -214,6 +214,10 @@ rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
 rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1]);
 drawnow
 %pause(1)
+
+v = VideoWriter('generation.avi', 'Motion JPEG AVI');
+set(v, 'FrameRate', 10, 'Quality', 100);
+open(v);
 
 dispAngle = 0;
 for i = 1:length(driverPitch)
@@ -270,7 +274,67 @@ for i = 1:length(driverPitch)
         drawnow
         dispAngle = floor(interpAngles(i));
     end
+    writeVideo(v, getframe(ax));
 end
+close(v);
+
+v = VideoWriter('motion.avi', 'Motion JPEG AVI');
+set(v, 'FrameRate', 10, 'Quality', 100);
+open(v);
+
+for i = 1:length(driverPitch)
+    if i == 1
+        driverPitchNow = driverPitch;
+        followerPitchNow = followerPitch;
+        driverPitchClNow = driverPitchCl;
+        followerPitchClNow = followerPitchCl;
+        driverProfile = rotPolygon(driverProfile, [0 0], driverPitch(end,1), driverPitch(end,2));
+        followerProfile = rotPolygon(followerProfile, [0 0], -followerPitch(end,1), -followerPitchNow(end,2));
+    else
+        driverPitchNow = rotPolygon(driverPitch, [0 0], driverPitch(i,1), -driverPitch(i,2));
+        followerPitchNow = rotPolygon(followerPitch, [0 0], -followerPitch(i,1), followerPitch(i,2));
+        driverPitchClNow = rotPolygon(driverPitchCl, [0 0], driverPitch(i,1), -driverPitch(i,2));
+        followerPitchClNow = rotPolygon(followerPitchCl, [0 0], -followerPitch(i,1), followerPitch(i,2));
+        driverProfile = rotPolygon(driverProfile, [0 0], driverPitchNow(i-1,1), driverPitchNow(i-1,2));
+        followerProfile = rotPolygon(followerProfile, [0 0], -followerPitchNow(i-1,1), -followerPitchNow(i-1,2));
+    end
+
+    %pitchDist = norm(driverPitch(i,:) - driverPitch(i-1,:));
+    %driverRack = driverRack + [norm(driverPitch(i,:))-norm(driverPitch(i-1,:)) -pitchDist];
+    %followerRack = followerRack + [norm(driverPitch(i,:))-norm(driverPitch(i-1,:)) -pitchDist];
+    if i == 1
+        rackDir = (driverPitchNow(2,:) - driverPitchNow(1,:) + ...
+            followerPitchNow(2,:) - followerPitchNow(1,:)) * [0 -1; 1 0];
+    elseif i == length(driverPitch)
+        rackDir = (driverPitchNow(end,:) - driverPitchNow(end-1,:) + ...
+            followerPitchNow(end,:) - followerPitchNow(end-1,:)) * [0 -1; 1 0];
+    else
+        rackDir = (driverPitchNow(i+1,:) - driverPitchNow(i-1,:) + ...
+            followerPitchNow(i+1,:) - followerPitchNow(i-1,:)) * [0 -1; 1 0];
+    end
+    contactLineNow = rotPolygon(contactLine, [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
+    %contactPointsNow = contactPoints - pitchLengths(i) * cos(pAngle) / norm(contactLine(1,:)) * contactLine(1,:);
+    contactPointsNow = contactPoints - pitchLengths(i) / pitch * contactPoints(2,:);
+    contactPointsNow = contactPointsNow(contactPointsNow(:,1) > -addDist & contactPointsNow(:,1) < addDist,:);
+    contactPointsNow = rotPolygon(contactPointsNow, [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
+    driverRackNow = rotPolygon(driverRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [driverPitchNow(i,1) 0];
+    followerRackNow = rotPolygon(followerRack + [0 -pitchLengths(i)], [0 0], rackDir(1), rackDir(2)) + [followerPitchNow(i,1) 0];
+
+    set(dph, 'XData', driverProfile(:,1), 'YData', driverProfile(:,2));
+    set(fph, 'XData', followerProfile(:,1)+a, 'YData', followerProfile(:,2));
+    set(dpr, 'XData', closeArray(driverRackNow(:,1)), 'YData', closeArray(driverRackNow(:,2)));
+    set(fpr, 'XData', closeArray(followerRackNow(:,1))+a, 'YData', closeArray(followerRackNow(:,2)));
+    set(dpc, 'XData', closeArray(driverPitchClNow(:,1)), 'YData', closeArray(driverPitchClNow(:,2)));
+    set(fpc, 'XData', closeArray(followerPitchClNow(:,1)+a), 'YData', closeArray(followerPitchClNow(:,2)));
+    set(cl, 'XData', contactLineNow(:,1), 'YData', contactLineNow(:,2));
+    set(cp, 'XData', contactPointsNow(:,1), 'YData', contactPointsNow(:,2));
+    if floor(interpAngles(i)) > dispAngle || i == length(driverPitch)
+        drawnow
+        dispAngle = floor(interpAngles(i));
+    end
+    writeVideo(v, getframe(ax));
+end
+close(v);
 
 
 function res = closeArray ( in )
