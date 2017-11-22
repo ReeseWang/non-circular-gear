@@ -175,15 +175,28 @@ function generation_v2 ()
     ax = axes(f);
     set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
     hold all
-    lph = fill(leftProfile(:,1), leftProfile(:,2), 'y');
+    lph = fill(leftProfile(:,1), leftProfile(:,2), 'y', 'Visible', 'off');
+    rph = fill(-rightProfile(:,1)+a, leftProfile(:,2), 'g', 'Visible', 'off');
     inh = fill([0], [0], 'b');                  % Intersection, materials being cut
     zh = plot(rackZigZag(:,1), rackZigZag(:,2), '-.');                        % Zigzag, rack to simulate
     tch = plot(toolCut(:,1), toolCut(:,2));     % Cutting portion of the tool
     trh = plot([0 0], [0 1]);                   % Tool reference vector
-    rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
+    lc = rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1], 'Visible', 'off');
+    rc = rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1], 'Visible', 'off');
+    pause(1)
 
+    show = @(x) set(x, 'Visible', 'on');
+    hide = @(x) set(x, 'Visible', 'off');
+
+    show(lph);
+    show(lc)
     isRightGear = false;
-    cutTeeth;
+    cutTeeth();
+    hide(lph);
+    hide(lc)
+
+    show(rph);
+    show(rc);
     isRightGear = true;
     cutTeeth();
 
@@ -270,7 +283,7 @@ function generation_v2 ()
                             end
                             replot(inh, fun(intersection));
                             if isRightGear
-                                replot(lph, fun(rightProfile));
+                                replot(rph, fun(rightProfile));
                             else
                                 replot(lph, fun(leftProfile));
                             end
