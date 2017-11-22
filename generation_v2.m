@@ -1,24 +1,24 @@
 function generation_v2 ()
     addpath(genpath('./'))
-    a = 15;                                         % Center distance
-    pAngle = 30*pi/180;                             % Pressure Angle
-    module = 1;                                     % Module
-    pitch = pi * module;                            % Curve pitch
-    addDist = 0.9 * module;                         % Addendum distance
-    dedDist = 1.1 * module;                         % Dedendum distance
-    posLimiterLeng = 3;                             % Position limiter length
-    errTol = 1e-4;                                  % Error checking tolerance
-    angTol = 1*pi/180;                              % Angular tolerance, rad
-    toolTipRadius = 0.2;                               % Forming tool radius
+    a = 15;                                     % Center distance
+    pAngle = 30*pi/180;                         % Pressure Angle
+    module = 1;                                 % Module
+    pitch = pi * module;                        % Curve pitch
+    addDist = 0.9 * module;                     % Addendum distance
+    dedDist = 1.1 * module;                     % Dedendum distance
+    posLimiterLeng = 3;                         % Position limiter length
+    errTol = 1e-4;                              % Error checking tolerance
+    angTol = 2*pi/180;                          % Angular tolerance, rad
+    toolTipRadius = 0.2;                        % Forming tool radius
     toolFullAngle = 45*pi/180;
     toolFluteLength = 5;
     toolDiameter = 3.175;
     toolStickOut = 15;
-    cutSteps = 2;                                   % How many steps to simulate a rack using tip tool
-    cutDepth = 0.2;                                 % Z step
-    dfReverse = true;                               % Reverse the role of driver and follower (pos don't change)
-    machineRef = true;                              % Demo in machine reference frame to avoid audience confusion.
-    leftRotateMargin = 1*pi/180;                  % Rotate margin of driver
+    cutSteps = 2;                               % How many steps to simulate a rack using tip tool
+    cutDepth = 0.2;                             % Z step
+    dfReverse = true;                           % Reverse the role of driver and follower (pos don't change)
+    machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
+    leftRotateMargin = 1*pi/180;                % Rotate margin of driver
 
     %% Read input, interpolate, and generate pitch curves.
     filename = 'fp.txt';
@@ -35,8 +35,8 @@ function generation_v2 ()
     polData(1,:) = polData(2,:) - leftRotateMargin/(polData(3,1) - polData(2,1))*(polData(3,:) - polData(2,:));
     polData(end,:) = polData(end-1,:) - leftRotateMargin/(polData(end-1,1) - polData(end-2,1))*(polData(end-1,:) - polData(end-2,:));
     dfStruct = spline(polData(:,1), polData(:,2));   % driverAngle = f(followerAngle)
-    ddfStruct = fnder(dfStruct);                    % 2nd order derivative
-    fStruct = fnint(dfStruct);                      % Original form
+    ddfStruct = fnder(dfStruct);                % 2nd order derivative
+    fStruct = fnint(dfStruct);                  % Original form
     offset = -ppval(fStruct, 0);
     fFunc = @(theta) ppval(fStruct, theta) + offset; % Ensure f(0) = 0
     dfFunc = @(theta) ppval(dfStruct, theta);
@@ -45,10 +45,10 @@ function generation_v2 ()
 
     dDRFunc = @(theta) a * ddfFunc(theta)./(1 + dfFunc(theta)).^2; % r_d' = a * f''(theta) / (1 + f'(theta))^2
     dsFunc = @(theta) sqrt(leftRadiusFunc(theta).^2 + dDRFunc(theta).^2); % ds = sqrt(r^2 + (df/dtheta)^2) dtheta
-    tagentFunc = @(theta) ddfFunc(theta)./(dfFunc(theta).*(1+dfFunc(theta))); % tan(alpha-theta)=f''[theta]/(f'[theta](1+f'[theta]))
+    tangentFunc = @(theta) ddfFunc(theta)./(dfFunc(theta).*(1+dfFunc(theta))); % tan(alpha-theta)=f''[theta]/(f'[theta](1+f'[theta]))
 
     leftPolarAngles = polData(1,1):angTol:polData(end,1);
-    if leftPolarAngles(end) < polData(end,1) % Last value should reach the max in domain
+    if leftPolarAngles(end) < polData(end,1)    % Last value should reach the max in domain
         leftPolarAngles = [leftPolarAngles polData(end,1)];
     end
     leftPolarAngles = leftPolarAngles';
@@ -56,10 +56,10 @@ function generation_v2 ()
     rightPolarAngles = fFunc(leftPolarAngles);
     rightPitchPolarRadius = a * 1./(1+dfFunc(leftPolarAngles));
     leftPitchPolarRadius = a - rightPitchPolarRadius;
-    leftTangentAngles = tagentFunc(leftPolarAngles);
-    %rightTangentAngles = -tagentFunc(leftPolarAngles); % Not necessary
+    leftTangentAngles = tangentFunc(leftPolarAngles);
+    %rightTangentAngles = -tangentFunc(leftPolarAngles); % Not necessary
 
-    %% XY coords of driver follower pitch line, extend by tagent
+    %% XY coords of driver follower pitch line, extend by tangent
     [leftPitch(:,1), leftPitch(:,2)] = pol2cart(leftPolarAngles, leftPitchPolarRadius);
     [rightPitch(:,1), rightPitch(:,2)] = pol2cart(rightPolarAngles, rightPitchPolarRadius);
     tanAngle = leftPolarAngles(end) - leftTangentAngles(end);
@@ -77,8 +77,8 @@ function generation_v2 ()
     rightPitch = [ ...
         rightPitch(1,:) - posLimiterLeng * [-sin(tanAngle) cos(tanAngle)]; rightPitch];
 
-    plot(leftPitch(:,1), leftPitch(:,2), - rightPitch(:,1) + a, rightPitch(:,2));
-    axis equal
+    %plot(leftPitch(:,1), leftPitch(:,2), - rightPitch(:,1) + a, rightPitch(:,2));
+    %axis equal
 
     %% Integrate pitch arc lengths.
     pitchArcLengths = zeros(size(leftPolarAngles));
@@ -111,7 +111,7 @@ function generation_v2 ()
     for i = 1:size(rackZigZag, 1)
         rackZigZag(i,1) = zigZagHalfHight * (-1)^i;
     end
-    if rackZigZag(end,1) < 0 % Driver should drive the follower at the end
+    if rackZigZag(end,1) < 0                    % Driver should drive the follower at the end
         rackZigZag = [rackZigZag; zigZagHalfHight rackZigZag(end,2) + pitch/2];
     end
     if dfReverse
@@ -176,45 +176,65 @@ function generation_v2 ()
     set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
     hold all
     lph = fill(leftProfile(:,1), leftProfile(:,2), 'y');
-    inh = fill([0], [0], 'b');                        % Intersection, materials being cut
+    inh = fill([0], [0], 'b');                  % Intersection, materials being cut
     zh = plot(rackZigZag(:,1), rackZigZag(:,2), '-.');                        % Zigzag, rack to simulate
-    tch = plot(toolCut(:,1), toolCut(:,2));                             % Cutting portion of the tool
-    trh = plot([0 0], [0 1]);                             % Tool reference vector
+    tch = plot(toolCut(:,1), toolCut(:,2));     % Cutting portion of the tool
+    trh = plot([0 0], [0 1]);                   % Tool reference vector
     rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
 
-    dothecut(false);
+    isRightGear = false;
+    cutTeeth;
+    isRightGear = true;
+    cutTeeth();
 
-    function dothecut (isRightGear)
-        for offsIdx = 1:size(cutOffsets, 1)             % For every cut offset
+    function cutTeeth()
+        if isRightGear
+            polarAngles = rightPolarAngles;
+            tangentAngles = -leftTangentAngles;
+            pitchPolarRadius = rightPitchPolarRadius;
+        else
+            polarAngles = leftPolarAngles;
+            tangentAngles = leftTangentAngles;
+            pitchPolarRadius = leftPitchPolarRadius;
+        end
+        for offsIdx = 1:size(cutOffsets, 1)     % For every cut offset
             toolCutThisPass = rotPolygon(toolCut, sin(cutOffsets(offsIdx,1)), ... % Rotate 90 degrees cw additionally
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolNonCutThisPass = rotPolygon(toolNonCut, sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolRefVectorThisPass = rotPolygon([0 0; 0 1], sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
-            for i = find(rackZigZag(:,1) < 0)'          % For every tooth
+            for i = find(rackZigZag(:,1) < 0)'  % For every tooth
                 toolCutThisTooth = toolCutThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 toolRefVectorThisTooth = toolRefVectorThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
-                for j = 1:size(leftPolarAngles, 1)
-                    cosrot = cos(leftPolarAngles(j) - leftTangentAngles(j));
-                    sinrot = sin(leftPolarAngles(j) - leftTangentAngles(j));
+                for j = 1:size(polarAngles, 1)
+                    cosrot = cos(polarAngles(j) - tangentAngles(j));
+                    sinrot = sin(polarAngles(j) - tangentAngles(j));
                     anchor = [0 pitchArcLengths(j)];
-                    move = leftPitchPolarRadius(j) * ...
-                       [cos(leftPolarAngles(j)) sin(leftPolarAngles(j))] - anchor;
+                    move = pitchPolarRadius(j) * ...
+                       [cos(polarAngles(j)) sin(polarAngles(j))] - anchor;
                     fun = @(x) rotPolygon(x, cosrot, sinrot, move, anchor);
                     toolCutNow = fun(toolCutThisTooth);
                     toolRefVectorNow = fun(toolRefVectorThisTooth);
                     zigZagNow = fun(rackZigZag);
-                    temp = polyclip(leftProfile, toolCutNow, 'int');
-                    if ~isempty(temp{1})                % If has intersection
+                    if isRightGear
+                        temp = polyclip(rightProfile, toolCutNow, 'int');
+                    else
+                        temp = polyclip(leftProfile, toolCutNow, 'int');
+                    end
+                    if ~isempty(temp{1})        % If has intersection
                         toolCutNow = {toolCutNow};
                         toolRefVectorNow = {toolRefVectorNow};
-                        if j == 1                       % First cut of the tooth, might need Z step cut
+                        if j == 1               % First cut of the tooth, might need Z step cut
                             fun = @(x) x{end} + ...
                                 cutDepth * normr(toolRefVectorNow{1}(2,:) - toolRefVectorNow{1}(1,:));
                             while true
                                 toolCutNow{end+1} = fun(toolCutNow);
-                                temp = polyclip(leftProfile, toolCutNow{end}, 'int');
+                                if isRightGear
+                                    temp = polyclip(rightProfile, toolCutNow{end}, 'int');
+                                else
+                                    temp = polyclip(leftProfile, toolCutNow{end}, 'int');
+                                end
                                 if isempty(temp{1})
                                     toolCutNow(end) = [];
                                     break
@@ -228,10 +248,19 @@ function generation_v2 ()
                                 assert(isempty(toolRefVectorNow))
                                 break
                             end
-                            temp = polyclip(leftProfile, toolCutNow{end}, 'int');
+                            if isRightGear
+                                temp = polyclip(rightProfile, toolCutNow{end}, 'int');
+                            else
+                                temp = polyclip(leftProfile, toolCutNow{end}, 'int');
+                            end
                             intersection = [temp{1}{1}, temp{2}{1}];
-                            temp = polyclip(leftProfile, toolCutNow{end}, 'dif');
-                            leftProfile = [temp{1}{1} temp{2}{1}];
+                            if isRightGear
+                                temp = polyclip(rightProfile, toolCutNow{end}, 'dif');
+                                rightProfile = [temp{1}{1} temp{2}{1}];
+                            else
+                                temp = polyclip(leftProfile, toolCutNow{end}, 'dif');
+                                leftProfile = [temp{1}{1} temp{2}{1}];
+                            end
                             if machineRef
                                 fun = @(x) rotPolygon(x, ...
                                     toolRefVectorNow{end}(2,2) - toolRefVectorNow{end}(1,2), ...
@@ -240,7 +269,11 @@ function generation_v2 ()
                                 fun = @(x) x;
                             end
                             replot(inh, fun(intersection));
-                            replot(lph, fun(leftProfile));
+                            if isRightGear
+                                replot(lph, fun(rightProfile));
+                            else
+                                replot(lph, fun(leftProfile));
+                            end
                             replot(zh, fun(zigZagNow));
                             replot(tch, fun(toolCutNow{end}));
                             replot(trh, fun(toolRefVectorNow{end}));
@@ -256,6 +289,9 @@ function generation_v2 ()
 
 
     function replot(h, x, y)
+        if isRightGear
+            x(:,1) = -x(:,1) + a;
+        end
         if ~exist('y', 'var')
             set(h, 'XData', x(:,1), 'YData', x(:,2));
         else
