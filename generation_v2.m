@@ -8,7 +8,7 @@ function generation_v2 ()
     dedDist = 1.1 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
     errTol = 1e-4;                              % Error checking tolerance
-    angTol = 2*pi/180;                          % Angular tolerance, rad
+    angTol = 5*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.2;                        % Forming tool radius
     toolFullAngle = 45*pi/180;
     toolFluteLength = 5;
@@ -188,27 +188,46 @@ function generation_v2 ()
     show = @(x) set(x, 'Visible', 'on');
     hide = @(x) set(x, 'Visible', 'off');
 
-    show(lph);
-    show(lc)
+    show([lph lc]);
     isRightGear = false;
     cutTeeth();
-    hide(lph);
-    hide(lc)
+    hide([lph lc]);
 
-    show(rph);
-    show(rc);
+    show([rph rc]);
     isRightGear = true;
     cutTeeth();
+
+    show([lph lc]);
+    hide([inh tch trh zh]);
+    motsim();
+
+    function motsim ()
+        for i = 1:size(leftPolarAngles, 1)
+            isRightGear = false;
+            replot(lph, ...
+                rotPolygon(leftProfile, ...
+                    cos(leftPolarAngles(i)), ...
+                    -sin(leftPolarAngles(i))));
+            isRightGear = true;
+            replot(rph, ...
+                rotPolygon(rightProfile, ...
+                    cos(rightPolarAngles(i)), ...
+                    -sin(rightPolarAngles(i))));
+            drawnow
+        end
+    end
 
     function cutTeeth()
         if isRightGear
             polarAngles = rightPolarAngles;
             tangentAngles = -leftTangentAngles;
             pitchPolarRadius = rightPitchPolarRadius;
+            iRange = find(rackZigZag(:,1) > 0)';
         else
             polarAngles = leftPolarAngles;
             tangentAngles = leftTangentAngles;
             pitchPolarRadius = leftPitchPolarRadius;
+            iRange = find(rackZigZag(:,1) < 0)';
         end
         for offsIdx = 1:size(cutOffsets, 1)     % For every cut offset
             toolCutThisPass = rotPolygon(toolCut, sin(cutOffsets(offsIdx,1)), ... % Rotate 90 degrees cw additionally
@@ -217,7 +236,7 @@ function generation_v2 ()
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolRefVectorThisPass = rotPolygon([0 0; 0 1], sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
-            for i = find(rackZigZag(:,1) < 0)'  % For every tooth
+            for i = iRange  % For every tooth
                 toolCutThisTooth = toolCutThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 toolRefVectorThisTooth = toolRefVectorThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 for j = 1:size(polarAngles, 1)
@@ -229,11 +248,12 @@ function generation_v2 ()
                     fun = @(x) rotPolygon(x, cosrot, sinrot, move, anchor);
                     toolCutNow = fun(toolCutThisTooth);
                     toolRefVectorNow = fun(toolRefVectorThisTooth);
-                    zigZagNow = fun(rackZigZag);
                     if isRightGear
                         temp = polyclip(rightProfile, toolCutNow, 'int');
+                        zigZagNow = fun([-rackZigZag(:,1), rackZigZag(:,2)]);
                     else
                         temp = polyclip(leftProfile, toolCutNow, 'int');
+                        zigZagNow = fun(rackZigZag);
                     end
                     if ~isempty(temp{1})        % If has intersection
                         toolCutNow = {toolCutNow};
