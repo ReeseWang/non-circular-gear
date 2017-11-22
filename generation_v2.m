@@ -16,6 +16,7 @@ toolDiameter = 3.175;
 toolStickOut = 15;
 cutSteps = 2;                                   % How many steps to simulate a rack using tip tool
 dfReverse = true;                               % Reverse the role of driver and follower (pos don't change)
+machineRef = true;                              % Demo in machine reference frame to avoid audience confusion.
 leftRotateMargin = 1*pi/180;                  % Rotate margin of driver
 
 %% Read input, interpolate, and generate pitch curves.
@@ -192,13 +193,20 @@ for offsIdx = 1:size(cutOffsets, 1)             % For every cut offset
             zigZagNow = fun(rackZigZag);
             temp = polyclip(leftProfile, toolCutNow, 'int');
             if ~isempty(temp{1})                % If has intersection
-                replot(inh, temp{1}{1}, temp{2}{1});
-                temp = polyclip(leftProfile, toolCutNow, 'dif');
-                leftProfile = [temp{1}{1} temp{2}{1}];
-                replot(lph, leftProfile);
-                replot(zh, zigZagNow);
-                replot(tch, toolCutNow);
-                replot(trh, toolRVNow);
+                temp1 = polyclip(leftProfile, toolCutNow, 'dif');
+                leftProfile = [temp1{1}{1} temp1{2}{1}];
+                if machineRef
+                    fun = @(x) rotPolygon(x, ...
+                       toolRVNow(2,2) - toolRVNow(1,2), ...
+                       toolRVNow(2,1) - toolRVNow(1,1));
+                else
+                    fun = @(x) x;
+                end
+                replot(inh, fun([temp{1}{1}, temp{2}{1}]));
+                replot(lph, fun(leftProfile));
+                replot(zh, fun(zigZagNow));
+                replot(tch, fun(toolCutNow));
+                replot(trh, fun(toolRVNow));
                 drawnow
             end
         end
