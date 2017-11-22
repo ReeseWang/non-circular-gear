@@ -21,7 +21,6 @@ function generation_v2 ()
     leftRotateMargin = 1*pi/180;                  % Rotate margin of driver
 
     %% Read input, interpolate, and generate pitch curves.
-    readfp;
     filename = 'fp.txt';
     delimiter = ',';
     formatSpec = '%f%f%[^\n\r]';
@@ -32,9 +31,9 @@ function generation_v2 ()
     clearvars filename delimiter formatSpec fileID dataArray ans;
 
     polData = [polData(:,1)/180*pi polData(:,2)];   % Convert to rad
-    %polData = polData([1 1:end end],:);
-    %polData(1,:) = polData(2,:) - leftRotateMargin/(polData(3,1) - polData(2,1))*(polData(3,:) - polData(2,:));
-    %polData(end,:) = polData(end-1,:) - leftRotateMargin/(polData(end-1,1) - polData(end-2,1))*(polData(end-1,:) - polData(end-2,:));
+    polData = polData([1 1:end end],:);
+    polData(1,:) = polData(2,:) - leftRotateMargin/(polData(3,1) - polData(2,1))*(polData(3,:) - polData(2,:));
+    polData(end,:) = polData(end-1,:) - leftRotateMargin/(polData(end-1,1) - polData(end-2,1))*(polData(end-1,:) - polData(end-2,:));
     dfStruct = spline(polData(:,1), polData(:,2));   % driverAngle = f(followerAngle)
     ddfStruct = fnder(dfStruct);                    % 2nd order derivative
     fStruct = fnint(dfStruct);                      % Original form
@@ -46,7 +45,7 @@ function generation_v2 ()
 
     dDRFunc = @(theta) a * ddfFunc(theta)./(1 + dfFunc(theta)).^2; % r_d' = a * f''(theta) / (1 + f'(theta))^2
     dsFunc = @(theta) sqrt(leftRadiusFunc(theta).^2 + dDRFunc(theta).^2); % ds = sqrt(r^2 + (df/dtheta)^2) dtheta
-    tagentFunc = @(theta) ddfFunc(theta)/(dfFunc(theta)*(1+dfFunc(theta))); % tan(alpha-theta)=f''[theta]/(f'[theta](1+f'[theta]))
+    tagentFunc = @(theta) ddfFunc(theta)./(dfFunc(theta).*(1+dfFunc(theta))); % tan(alpha-theta)=f''[theta]/(f'[theta](1+f'[theta]))
 
     leftPolarAngles = polData(1,1):angTol:polData(end,1);
     if leftPolarAngles(end) < polData(end,1) % Last value should reach the max in domain
@@ -57,27 +56,29 @@ function generation_v2 ()
     rightPolarAngles = fFunc(leftPolarAngles);
     rightPitchPolarRadius = a * 1./(1+dfFunc(leftPolarAngles));
     leftPitchPolarRadius = a - rightPitchPolarRadius;
+    leftTangentAngles = tagentFunc(leftPolarAngles);
+    %rightTangentAngles = -tagentFunc(leftPolarAngles); % Not necessary
 
     %% XY coords of driver follower pitch line, extend by tagent
     [leftPitch(:,1), leftPitch(:,2)] = pol2cart(leftPolarAngles, leftPitchPolarRadius);
     [rightPitch(:,1), rightPitch(:,2)] = pol2cart(rightPolarAngles, rightPitchPolarRadius);
-    tanAngle = leftPolarAngles(end) - atan(tagentFunc(leftPolarAngles(end)));
+    tanAngle = leftPolarAngles(end) - leftTangentAngles(end);
     leftPitch(end+1,:) = ...
         leftPitch(end,:) + posLimiterLeng * ...
         [-sin(tanAngle), cos(tanAngle)];
-    tanAngle = rightPolarAngles(end) + atan(tagentFunc(rightPolarAngles(end)));
+    tanAngle = rightPolarAngles(end) + leftTangentAngles(end);
     rightPitch(end+1,:) = ...
         rightPitch(end,:) + posLimiterLeng * ...
         [-sin(tanAngle), cos(tanAngle)];
-    tanAngle = leftPolarAngles(1) - atan(tagentFunc(leftPolarAngles(1)));
+    tanAngle = leftPolarAngles(1) - leftTangentAngles(1);
     leftPitch = [ ...
         leftPitch(1,:) - posLimiterLeng * [-sin(tanAngle) cos(tanAngle)]; leftPitch];
-    tanAngle = rightPolarAngles(1) - atan(tagentFunc(rightPolarAngles(1)));
+    tanAngle = rightPolarAngles(1) + leftTangentAngles(1);
     rightPitch = [ ...
         rightPitch(1,:) - posLimiterLeng * [-sin(tanAngle) cos(tanAngle)]; rightPitch];
 
-    %plot(leftPitch(:,1), leftPitch(:,2), - rightPitch(:,1) + a, rightPitch(:,2));
-    %axis equal
+    plot(leftPitch(:,1), leftPitch(:,2), - rightPitch(:,1) + a, rightPitch(:,2));
+    axis equal
 
     %% Integrate pitch arc lengths.
     pitchArcLengths = zeros(size(leftPolarAngles));
@@ -181,9 +182,9 @@ function generation_v2 ()
     trh = plot([0 0], [0 1]);                             % Tool reference vector
     rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1]);
 
-    dothecut();
+    dothecut(false);
 
-    function dothecut ()
+    function dothecut (isRightGear)
         for offsIdx = 1:size(cutOffsets, 1)             % For every cut offset
             toolCutThisPass = rotPolygon(toolCut, sin(cutOffsets(offsIdx,1)), ... % Rotate 90 degrees cw additionally
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
@@ -195,8 +196,8 @@ function generation_v2 ()
                 toolCutThisTooth = toolCutThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 toolRefVectorThisTooth = toolRefVectorThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 for j = 1:size(leftPolarAngles, 1)
-                    cosrot = cos(leftPolarAngles(j) - atan(tagentFunc(leftPolarAngles(j))));
-                    sinrot = sin(leftPolarAngles(j) - atan(tagentFunc(leftPolarAngles(j))));
+                    cosrot = cos(leftPolarAngles(j) - leftTangentAngles(j));
+                    sinrot = sin(leftPolarAngles(j) - leftTangentAngles(j));
                     anchor = [0 pitchArcLengths(j)];
                     move = leftPitchPolarRadius(j) * ...
                        [cos(leftPolarAngles(j)) sin(leftPolarAngles(j))] - anchor;
