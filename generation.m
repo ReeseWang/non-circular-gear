@@ -1,6 +1,6 @@
 addpath(genpath('./'))
 a = 15;                                         % Center distance
-pAngle = 30*pi/180;                           % Pressure Angle
+pAngle = 20*pi/180;                           % Pressure Angle
 module = 1;                                     % Module
 pitch = pi * module;                            % Curve pitch
 addDist = 0.9 * module;                         % Addendum distance
@@ -12,7 +12,15 @@ toolRadius = 0.2;                               % Forming tool radius
 dfReverse = true;                               % Reverse the role of driver and follower (pos don't change)
 
 %% Read input, interpolate, and generate pitch curves.
-readfp;
+filename = 'fp.txt';
+delimiter = ',';
+formatSpec = '%f%f%[^\n\r]';
+fileID = fopen(filename,'r');
+dataArray = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'TextType', 'string',  'ReturnOnError', false);
+fclose(fileID);
+polData = [dataArray{1:end-1}];
+clearvars filename delimiter formatSpec fileID dataArray ans;
+
 interpAngles = polData(1,1):angTol/pi*180:polData(end,1);
 if interpAngles(end) < polData(end,1)
     interpAngles = [interpAngles polData(end,1)];
