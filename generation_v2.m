@@ -349,18 +349,25 @@ function generation_v2 ()
             end
             if ~isempty(temp{1})        % If has intersection
                 intersection = [temp{1}{1} temp{2}{1}];
-                replot(inh, intersection);
+                if machineRef
+                    fun = @(x) rotPolygon(x, ...
+                        toolRefVectorNow(2,2) - toolRefVectorNow(1,2), ...
+                        toolRefVectorNow(2,1) - toolRefVectorNow(1,1));
+                else
+                    fun = @(x) x;
+                end
+                replot(inh, fun(intersection));
                 if isRightGear
                     temp = polyclip(rightProfile, toolCutNow, 'dif');
                     rightProfile = [temp{1}{1} temp{2}{1}];
-                    replot(rph, rightProfile);
+                    replot(rph, fun(rightProfile));
                 else
                     temp = polyclip(leftProfile, toolCutNow, 'dif');
                     leftProfile = [temp{1}{1} temp{2}{1}];
-                    replot(lph, leftProfile);
+                    replot(lph, fun(leftProfile));
                 end
-                replot(tch, toolCutNow);
-                replot(trh, toolRefVectorNow);
+                replot(tch, fun(toolCutNow));
+                replot(trh, fun(toolRefVectorNow));
                 drawnow
                 %pause(0.1)
             end
