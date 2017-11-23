@@ -22,6 +22,7 @@ function generation_v2 ()
     blankDia = 30;                              % Blank material diameter
     roughToolDia = 10;
     roughToolFluteLength = 50;
+    angleStep = 1*pi/180;
 
     %% Read input, interpolate, and generate pitch curves.
     filename = 'fp.txt';
@@ -98,15 +99,51 @@ function generation_v2 ()
         pitchArcLengths(idx);
     pitchArcLengths = pitchArcLengths + offset;
 
-    %% Expand pitch curve by addDist to obtain initial profiles.
+    %% Expand pitch curve by addDist to obtain profile targets.
     temp = polyout(leftPitch(:,1), leftPitch(:,2), addDist, 'm');
     leftProfileTarget = [temp{1}{1} temp{2}{1}];
     temp = polyout(rightPitch(:,1), rightPitch(:,2), addDist, 'm');
     rightProfileTarget = [temp{1}{1} temp{2}{1}];
 
+    toolCut = [ ...
+        roughToolDia/2, 0;
+        roughToolDia/2, roughToolFluteLength;
+        -roughToolDia/2, roughToolFluteLength;
+        -roughToolDia/2, 0];
+    temp = (0:angTol:2*pi)';
+    leftProfile = blankDia/2*[cos(temp) sin(temp)];
+    rightProfile = leftProfile;
+
     %fill(leftProfile(:,1), leftProfile(:,2), 'y', ...
     %    -rightProfile(:,1)+a, rightProfile(:,2), 'r');
     %axis equal
+    %pause(1)
+    
+    f = figure('OuterPosition', [0 0 1200 800]);
+    ax = axes(f);
+    set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
+    hold all
+    lph = fill(leftProfile(:,1), leftProfile(:,2), 'y', 'Visible', 'off');
+    rph = fill(-rightProfile(:,1)+a, leftProfile(:,2), 'g', 'Visible', 'off');
+    inh = fill([0], [0], 'b');                  % Intersection, materials being cut
+    tch = plot(toolCut(:,1), toolCut(:,2));     % Cutting portion of the tool
+    trh = plot([0 0], [0 1]);                   % Tool reference vector
+    lc = rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1], 'Visible', 'off');
+    rc = rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1], 'Visible', 'off');
+    pause(1)
+
+    show = @(x) set(x, 'Visible', 'on');
+    hide = @(x) set(x, 'Visible', 'off');
+
+    show([lph lc]);
+    isRightGear = false;
+    cutAddendumProfile();
+    hide([lph lc]);
+
+    show([rph rc]);
+    isRightGear = true;
+    cutAddendumProfile();
+    hide([rph rc]);
 
     %% Generate zigzag shape of rack to simulate
     zigZagHalfHight = pitch/4/tan(pAngle);
@@ -174,23 +211,7 @@ function generation_v2 ()
 
     %% Cutting the gear on the left
 
-    f = figure('OuterPosition', [0 0 1200 800]);
-    ax = axes(f);
-    set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
-    hold all
-    lph = fill(leftProfile(:,1), leftProfile(:,2), 'y', 'Visible', 'off');
-    rph = fill(-rightProfile(:,1)+a, leftProfile(:,2), 'g', 'Visible', 'off');
-    inh = fill([0], [0], 'b');                  % Intersection, materials being cut
     zh = plot(rackZigZag(:,1), rackZigZag(:,2), '-.');                        % Zigzag, rack to simulate
-    tch = plot(toolCut(:,1), toolCut(:,2));     % Cutting portion of the tool
-    trh = plot([0 0], [0 1]);                   % Tool reference vector
-    lc = rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1], 'Visible', 'off');
-    rc = rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1], 'Visible', 'off');
-    pause(1)
-
-    show = @(x) set(x, 'Visible', 'on');
-    hide = @(x) set(x, 'Visible', 'off');
-
     show([lph lc]);
     isRightGear = false;
     cutTeeth();
@@ -203,6 +224,101 @@ function generation_v2 ()
     show([lph lc]);
     hide([inh tch trh zh]);
     motsim();
+
+    function cutAddendumProfile ()
+        if isRightGear
+            profileTarget = rightProfileTarget;
+        else
+            profileTarget = leftProfileTarget;
+        end
+
+        for i = 1:size(profileTarget, 1)
+            if i == 1
+                edge = profileTarget([end 1],:);
+                edgeNext = profileTarget([1 2],:);
+            elseif i == size(profileTarget, 1)
+                edge = profileTarget([end-1 end],:);
+                edgeNext = profileTarget([end 1],:);
+            else
+                edge = profileTarget([i-1 i],:);
+                edgeNext = profileTarget([i i+1],:);
+            end
+
+            % Start point of the edge
+            fun = @(x) rotPolygon(x, edge(1,1) - edge(2,1), ...
+                edge(1,2) - edge(2,2), edge(1,:));
+            toolCutNow = fun(toolCut);
+            toolRefVectorNow = fun([0 0; 0 1]);
+            cutAddProfilePlot();
+
+            % First traverse the edge
+            distToGo = norm(edge(2,:) - edge(1,:));
+            moveVector = normr(edge(2,:) - edge(1,:));
+            while true
+                if distToGo > roughToolDia
+                    moveTool(moveVector * roughToolDia);
+                    distToGo = distToGo - roughToolDia;
+                else
+                    moveTool(moveVector * distToGo);
+                    break
+                end
+            end
+
+            % Second rotate to next edge
+            angToRot = atan2( ...
+                dot(edgeNext(2,:) - edgeNext(1,:), (edge(2,:) - edge(1,:))*[0 1; -1 0]), ...
+                dot(edgeNext(2,:) - edgeNext(1,:), edge(2,:) - edge(1,:)))
+            while true
+                if angToRot > angleStep
+                    rotTool(angleStep * sign(angToRot));
+                    angToRot = angToRot - angleStep * sign(angToRot)
+                else
+                    %rotTool(angToRot);         % Not needed 
+                    break
+                end
+            end
+        end
+
+        function rotTool (ang)
+            cosang = cos(ang);
+            sinang = sin(ang);
+            fun = @(x) rotPolygon(x, cosang, sinang, [0 0], toolRefVectorNow(1,:));
+            toolCutNow = fun(toolCutNow);
+            toolRefVectorNow = fun(toolRefVectorNow);
+            cutAddProfilePlot();
+        end
+
+        function moveTool (vect)
+            toolCutNow = toolCutNow + vect;
+            toolRefVectorNow = toolRefVectorNow + vect;
+            cutAddProfilePlot();
+        end
+
+        function cutAddProfilePlot ()
+            if isRightGear
+                temp = polyclip(rightProfile, toolCutNow, 'int');
+            else
+                temp = polyclip(leftProfile, toolCutNow, 'int');
+            end
+            if ~isempty(temp{1})        % If has intersection
+                intersection = [temp{1}{1} temp{2}{1}];
+                replot(inh, intersection);
+                if isRightGear
+                    temp = polyclip(rightProfile, toolCutNow, 'dif');
+                    rightProfile = [temp{1}{1} temp{2}{1}];
+                    replot(rph, rightProfile);
+                else
+                    temp = polyclip(leftProfile, toolCutNow, 'dif');
+                    leftProfile = [temp{1}{1} temp{2}{1}];
+                    replot(lph, leftProfile);
+                end
+                replot(tch, toolCutNow);
+                replot(trh, toolRefVectorNow);
+                drawnow
+                %pause(0.1)
+            end
+        end
+    end
 
     function motsim ()
         for i = 1:size(leftPolarAngles, 1)
