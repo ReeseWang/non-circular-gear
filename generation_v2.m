@@ -19,6 +19,9 @@ function generation_v2 ()
     rightIsDriver = true;                           % Reverse the role of driver and follower (pos don't change)
     machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
     leftRotateMargin = 1*pi/180;                % Rotate margin of driver
+    blankDia = 30;                              % Blank material diameter
+    roughToolDia = 10;
+    roughToolFluteLength = 50;
 
     %% Read input, interpolate, and generate pitch curves.
     filename = 'fp.txt';
@@ -97,9 +100,9 @@ function generation_v2 ()
 
     %% Expand pitch curve by addDist to obtain initial profiles.
     temp = polyout(leftPitch(:,1), leftPitch(:,2), addDist, 'm');
-    leftProfile = [temp{1}{1} temp{2}{1}];
+    leftProfileTarget = [temp{1}{1} temp{2}{1}];
     temp = polyout(rightPitch(:,1), rightPitch(:,2), addDist, 'm');
-    rightProfile = [temp{1}{1} temp{2}{1}];
+    rightProfileTarget = [temp{1}{1} temp{2}{1}];
 
     %fill(leftProfile(:,1), leftProfile(:,2), 'y', ...
     %    -rightProfile(:,1)+a, rightProfile(:,2), 'r');
