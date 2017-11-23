@@ -16,7 +16,7 @@ function generation_v2 ()
     toolStickOut = 15;
     cutSteps = 2;                               % How many steps to simulate a rack using tip tool
     cutDepth = 0.2;                             % Z step
-    dfReverse = true;                           % Reverse the role of driver and follower (pos don't change)
+    rightIsDriver = true;                           % Reverse the role of driver and follower (pos don't change)
     machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
     leftRotateMargin = 1*pi/180;                % Rotate margin of driver
 
@@ -114,7 +114,7 @@ function generation_v2 ()
     if rackZigZag(end,1) < 0                    % Driver should drive the follower at the end
         rackZigZag = [rackZigZag; zigZagHalfHight rackZigZag(end,2) + pitch/2];
     end
-    if dfReverse
+    if rightIsDriver
         rackZigZag(:,1) = - rackZigZag(:,1);
     end
 
