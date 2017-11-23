@@ -106,10 +106,10 @@ function generation_v2 ()
     rightProfileTarget = [temp{1}{1} temp{2}{1}];
 
     toolCut = [ ...
-        roughToolDia/2, 0;
         roughToolDia/2, roughToolFluteLength;
-        -roughToolDia/2, roughToolFluteLength;
-        -roughToolDia/2, 0];
+        roughToolDia/2, 0;
+        -roughToolDia/2, 0;
+        -roughToolDia/2, roughToolFluteLength];
     temp = (0:angTol:2*pi)';
     leftProfile = blankDia/2*[cos(temp) sin(temp)];
     rightProfile = leftProfile;
@@ -119,6 +119,22 @@ function generation_v2 ()
     %axis equal
     %pause(1)
     
+    %% Generate zigzag shape of rack to simulate
+    zigZagHalfHight = pitch/4/tan(pAngle);
+    rackZigZag = ((-pitch/4:pitch/2:pitchArcLengths(end)+pitch/2)'*[1 1]);
+    for i = 1:size(rackZigZag, 1)
+        rackZigZag(i,1) = zigZagHalfHight * (-1)^i;
+    end
+    if rackZigZag(end,1) < 0                    % Driver should drive the follower at the end
+        rackZigZag = [rackZigZag; zigZagHalfHight rackZigZag(end,2) + pitch/2];
+        rackZigZagComped = true;
+    else
+        rackZigZagComped = false;
+    end
+    if rightIsDriver
+        rackZigZag(:,1) = - rackZigZag(:,1);
+    end
+
     f = figure('OuterPosition', [0 0 1200 800]);
     ax = axes(f);
     set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
@@ -144,19 +160,6 @@ function generation_v2 ()
     isRightGear = true;
     cutAddendumProfile();
     hide([rph rc]);
-
-    %% Generate zigzag shape of rack to simulate
-    zigZagHalfHight = pitch/4/tan(pAngle);
-    rackZigZag = ((-pitch/4:pitch/2:pitchArcLengths(end)+pitch/2)'*[1 1]);
-    for i = 1:size(rackZigZag, 1)
-        rackZigZag(i,1) = zigZagHalfHight * (-1)^i;
-    end
-    if rackZigZag(end,1) < 0                    % Driver should drive the follower at the end
-        rackZigZag = [rackZigZag; zigZagHalfHight rackZigZag(end,2) + pitch/2];
-    end
-    if rightIsDriver
-        rackZigZag(:,1) = - rackZigZag(:,1);
-    end
 
     %% Check if tool radius satisfy the requirement.
     maxToolRadius = (dedDist - addDist) / (1 - sin(pAngle));
@@ -267,16 +270,60 @@ function generation_v2 ()
             % Second rotate to next edge
             angToRot = atan2( ...
                 dot(edgeNext(2,:) - edgeNext(1,:), (edge(2,:) - edge(1,:))*[0 1; -1 0]), ...
-                dot(edgeNext(2,:) - edgeNext(1,:), edge(2,:) - edge(1,:)))
+                dot(edgeNext(2,:) - edgeNext(1,:), edge(2,:) - edge(1,:)));
             while true
                 if angToRot > angleStep
                     rotTool(angleStep * sign(angToRot));
-                    angToRot = angToRot - angleStep * sign(angToRot)
+                    angToRot = angToRot - angleStep * sign(angToRot);
                 else
                     %rotTool(angToRot);         % Not needed 
                     break
                 end
             end
+        end
+
+        if isRightGear && rightIsDriver
+            refPoint = rightPitchPolarRadius(1) * ...
+                [cos(rightPolarAngles(1)) sin(rightPolarAngles(1))];
+            tanAngle = rightPolarAngles(1) + leftTangentAngles(1);
+            flip = false;
+        elseif isRightGear && ~rightIsDriver
+            refPoint = rightPitchPolarRadius(end) * ...
+                [cos(rightPolarAngles(end)) sin(rightPolarAngles(end))];
+            tanAngle = rightPolarAngles(end) + leftTangentAngles(end);
+            flip = true;
+        elseif ~isRightGear && ~rightIsDriver
+            refPoint = leftPitchPolarRadius(1) * ...
+                [cos(leftPolarAngles(1)) sin(leftPolarAngles(1))];
+            tanAngle = leftPolarAngles(1) - leftTangentAngles(1);
+            flip = false;
+        elseif ~isRightGear && rightIsDriver
+            refPoint = leftPitchPolarRadius(end) * ...
+                [cos(leftPolarAngles(end)) sin(leftPolarAngles(end))];
+            tanAngle = leftPolarAngles(end) - leftTangentAngles(end);
+            flip = true;
+        end
+        toolRefVectors = [...
+            (roughToolDia/2 - addDist/cos(pAngle)) * [cos(pAngle) sin(pAngle)];
+            0, 0;
+            -addDist * [1 tan(pAngle)] - [0 roughToolDia/2];
+            0, 0];
+        toolRefVectors(2,:) = toolRefVectors(1,:) + [sin(pAngle) -cos(pAngle)];
+        toolRefVectors(4,:) = toolRefVectors(3,:) + [1 0];
+        if flip
+            toolRefVectors(:,2) = -toolRefVectors(:,2);
+            if rackZigZagComped
+                toolRefVectors = toolRefVectors + [0 pitch/2];
+            end
+        end
+        toolRefVectors = rotPolygon(toolRefVectors, cos(tanAngle), sin(tanAngle), ...
+            refPoint);
+
+        for i = [1 3]
+            toolRefVectorNow = toolRefVectors([i i+1],:);
+            toolCutNow = alignToolToRefVec(toolCut, toolRefVectorNow);
+            cutAddProfilePlot();
+            pause(1)
         end
 
         function rotTool (ang)
@@ -449,6 +496,11 @@ function generation_v2 ()
         else
             set(h, 'XData', x, 'YData', y);
         end
+    end
+
+
+    function res = alignToolToRefVec ( tool, ref )
+        res = rotPolygon( tool, ref(2,2) - ref(1,2), ref(1,1) - ref(2,1), ref(1,:));
     end
 
     function res = rotPolygon ( polygon, cosrot, sinrot, move, pivot)
