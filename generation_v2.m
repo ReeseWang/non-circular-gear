@@ -8,7 +8,7 @@ function generation_v2 ()
     dedDist = 1.1 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
     errTol = 1e-4;                              % Error checking tolerance
-    angTol = 5*pi/180;                          % Angular tolerance, rad
+    angTol = 3*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.2;                        % Forming tool radius
     toolFullAngle = 45*pi/180;
     toolFluteLength = 5;
@@ -22,7 +22,7 @@ function generation_v2 ()
     blankDia = 30;                              % Blank material diameter
     roughToolDia = 10;
     roughToolFluteLength = 50;
-    angleStep = 1*pi/180;
+    angleStep = 3*pi/180;
 
     %% Read input, interpolate, and generate pitch curves.
     filename = 'fp.txt';
@@ -147,6 +147,10 @@ function generation_v2 ()
     lc = rectangle('Position', [-1 -1 2 2]*a/10, 'Curvature', [1 1], 'Visible', 'off');
     rc = rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1], 'Visible', 'off');
     pause(1)
+
+    v = VideoWriter('millingOperations.avi', 'Motion JPEG AVI');
+    set(v, 'FrameRate', 10, 'Quality', 100);
+%    open(v);
 
     show = @(x) set(x, 'Visible', 'on');
     hide = @(x) set(x, 'Visible', 'off');
@@ -323,7 +327,10 @@ function generation_v2 ()
             toolRefVectorNow = toolRefVectors([i i+1],:);
             toolCutNow = alignToolToRefVec(toolCut, toolRefVectorNow);
             cutAddProfilePlot();
-            pause(1)
+            for delay = 1:20
+%                writeVideo(v, getframe(ax));
+            end
+%            pause(1)
         end
 
         function rotTool (ang)
@@ -369,6 +376,7 @@ function generation_v2 ()
                 replot(tch, fun(toolCutNow));
                 replot(trh, fun(toolRefVectorNow));
                 drawnow
+%                writeVideo(v, getframe(ax));
                 %pause(0.1)
             end
         end
@@ -387,6 +395,7 @@ function generation_v2 ()
                     cos(rightPolarAngles(i)), ...
                     -sin(rightPolarAngles(i))));
             drawnow
+%            writeVideo(v, getframe(ax));
         end
     end
 
@@ -484,6 +493,7 @@ function generation_v2 ()
                             replot(tch, fun(toolCutNow{end}));
                             replot(trh, fun(toolRefVectorNow{end}));
                             drawnow
+%                            writeVideo(v, getframe(ax));
                             toolCutNow(end) = [];
                             toolRefVectorNow(end) = [];
                         end
