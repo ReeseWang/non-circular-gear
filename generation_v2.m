@@ -5,7 +5,7 @@ function [ ...
         rightRoughToolPath, ...
         rightRoughToolPathExtra, ...
         rightTeethToolPath ...
-        ] = generation_v2 (filename)
+        ] = generation_v2 (filename, blankDia)
     addpath(genpath('./'))
     a = 15;                                     % Center distance
     pAngle = 30*pi/180;                         % Pressure Angle
@@ -15,7 +15,7 @@ function [ ...
     dedDist = 1.1 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
     errTol = 1e-4;                              % Error checking tolerance
-    angTol = 3*pi/180;                          % Angular tolerance, rad
+    angTol = 1*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.2;                        % Forming tool radius
     toolFullAngle = 45*pi/180;
     toolFluteLength = 5;
@@ -26,10 +26,10 @@ function [ ...
     rightIsDriver = true;                           % Reverse the role of driver and follower (pos don't change)
     machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
     leftRotateMargin = 1*pi/180;                % Rotate margin of driver
-    blankDia = 30;                              % Blank material diameter
+%    blankDia = 30;                              % Blank material diameter
     roughToolDia = 10;
     roughToolFluteLength = 50;
-    angleStep = 3*pi/180;
+    angleStep = 1*pi/180;
 
     leftRoughingToolPath = {};
     leftRoughingToolPathExtra = {};
@@ -375,11 +375,11 @@ function [ ...
             toolCutNow = toolCutNow + vect;
             toolRefVectorNow = toolRefVectorNow + vect;
             cutAddProfilePlot();
-            if isRightGear
-                rightRoughToolPath{end+1} = toolRefVectorNow;
-            else
-                leftRoughingToolPath{end+1} = toolRefVectorNow;
-            end
+%            if isRightGear
+%                rightRoughToolPath{end+1} = toolRefVectorNow;
+%            else
+%                leftRoughingToolPath{end+1} = toolRefVectorNow;
+%            end
         end
 
         function cutAddProfilePlot ()
