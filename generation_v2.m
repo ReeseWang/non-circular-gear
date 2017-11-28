@@ -1,4 +1,11 @@
-function generation_v2 ()
+function [ ...
+        leftRoughingToolPath, ...
+        leftRoughingToolPathExtra, ...
+        leftTeethToolPath, ...
+        rightRoughToolPath, ...
+        rightRoughToolPathExtra, ...
+        rightTeethToolPath ...
+        ] = generation_v2 (filename)
     addpath(genpath('./'))
     a = 15;                                     % Center distance
     pAngle = 30*pi/180;                         % Pressure Angle
@@ -24,8 +31,15 @@ function generation_v2 ()
     roughToolFluteLength = 50;
     angleStep = 3*pi/180;
 
+    leftRoughingToolPath = {};
+    leftRoughingToolPathExtra = {};
+    leftTeethToolPath = {};
+    rightRoughToolPath = {};
+    rightRoughToolPathExtra = {};
+    rightTeethToolPath  = {};
+
     %% Read input, interpolate, and generate pitch curves.
-    filename = 'fp.txt';
+%    filename = 'fp.txt';
     delimiter = ',';
     formatSpec = '%f%f%[^\n\r]';
     fileID = fopen(filename,'r');
@@ -257,6 +271,11 @@ function generation_v2 ()
             toolCutNow = fun(toolCut);
             toolRefVectorNow = fun([0 0; 0 1]);
             cutAddProfilePlot();
+            if isRightGear
+                rightRoughToolPath{end+1} = toolRefVectorNow;
+            else
+                leftRoughingToolPath{end+1} = toolRefVectorNow;
+            end
 
             % First traverse the edge
             distToGo = norm(edge(2,:) - edge(1,:));
@@ -322,6 +341,11 @@ function generation_v2 ()
         end
         toolRefVectors = rotPolygon(toolRefVectors, cos(tanAngle), sin(tanAngle), ...
             refPoint);
+        if isRightGear
+            rightRoughToolPathExtra = toolRefVectors;
+        else
+            leftRoughingToolPathExtra = toolRefVectors;
+        end
 
         for i = [1 3]
             toolRefVectorNow = toolRefVectors([i i+1],:);
@@ -340,12 +364,22 @@ function generation_v2 ()
             toolCutNow = fun(toolCutNow);
             toolRefVectorNow = fun(toolRefVectorNow);
             cutAddProfilePlot();
+            if isRightGear
+                rightRoughToolPath{end+1} = toolRefVectorNow;
+            else
+                leftRoughingToolPath{end+1} = toolRefVectorNow;
+            end
         end
 
         function moveTool (vect)
             toolCutNow = toolCutNow + vect;
             toolRefVectorNow = toolRefVectorNow + vect;
             cutAddProfilePlot();
+            if isRightGear
+                rightRoughToolPath{end+1} = toolRefVectorNow;
+            else
+                leftRoughingToolPath{end+1} = toolRefVectorNow;
+            end
         end
 
         function cutAddProfilePlot ()
@@ -412,13 +446,25 @@ function generation_v2 ()
             iRange = find(rackZigZag(:,1) < 0)';
         end
         for offsIdx = 1:size(cutOffsets, 1)     % For every cut offset
+            if isRightGear
+                rightTeethToolPath{offsIdx} = {};
+            else
+                leftTeethToolPath{offsIdx} = {};
+            end
             toolCutThisPass = rotPolygon(toolCut, sin(cutOffsets(offsIdx,1)), ... % Rotate 90 degrees cw additionally
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolNonCutThisPass = rotPolygon(toolNonCut, sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolRefVectorThisPass = rotPolygon([0 0; 0 1], sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
+            idxTeeth = 0;
             for i = iRange  % For every tooth
+                idxTeeth = idxTeeth + 1;
+                if isRightGear
+                    rightTeethToolPath{offsIdx}{idxTeeth} = {};
+                else
+                    leftTeethToolPath{offsIdx}{idxTeeth} = {};
+                end
                 toolCutThisTooth = toolCutThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 toolRefVectorThisTooth = toolRefVectorThisPass + [-dedDist+toolTipRadius rackZigZag(i,2)];
                 for j = 1:size(polarAngles, 1)
@@ -465,16 +511,16 @@ function generation_v2 ()
                             end
                             if isRightGear
                                 temp = polyclip(rightProfile, toolCutNow{end}, 'int');
-                            else
-                                temp = polyclip(leftProfile, toolCutNow{end}, 'int');
-                            end
-                            intersection = [temp{1}{1}, temp{2}{1}];
-                            if isRightGear
+                                intersection = [temp{1}{1}, temp{2}{1}];
                                 temp = polyclip(rightProfile, toolCutNow{end}, 'dif');
                                 rightProfile = [temp{1}{1} temp{2}{1}];
+                                rightTeethToolPath{offsIdx}{idxTeeth}{end+1} = toolRefVectorNow{end};
                             else
+                                temp = polyclip(leftProfile, toolCutNow{end}, 'int');
+                                intersection = [temp{1}{1}, temp{2}{1}];
                                 temp = polyclip(leftProfile, toolCutNow{end}, 'dif');
                                 leftProfile = [temp{1}{1} temp{2}{1}];
+                                leftTeethToolPath{offsIdx}{idxTeeth}{end+1} = toolRefVectorNow{end};
                             end
                             if machineRef
                                 fun = @(x) rotPolygon(x, ...
