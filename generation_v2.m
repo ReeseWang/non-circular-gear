@@ -2,8 +2,8 @@ function [ ...
         leftRoughingToolPath, ...
         leftRoughingToolPathExtra, ...
         leftTeethToolPath, ...
-        rightRoughToolPath, ...
-        rightRoughToolPathExtra, ...
+        rightRoughingToolPath, ...
+        rightRoughingToolPathExtra, ...
         rightTeethToolPath ...
         ] = generation_v2 (filename, blankDia)
     addpath(genpath('./'))
@@ -34,8 +34,8 @@ function [ ...
     leftRoughingToolPath = {};
     leftRoughingToolPathExtra = {};
     leftTeethToolPath = {};
-    rightRoughToolPath = {};
-    rightRoughToolPathExtra = {};
+    rightRoughingToolPath = {};
+    rightRoughingToolPathExtra = {};
     rightTeethToolPath  = {};
 
     %% Read input, interpolate, and generate pitch curves.
@@ -272,7 +272,7 @@ function [ ...
             toolRefVectorNow = fun([0 0; 0 1]);
             cutAddProfilePlot();
             if isRightGear
-                rightRoughToolPath{end+1} = toolRefVectorNow;
+                rightRoughingToolPath{end+1} = toolRefVectorNow;
             else
                 leftRoughingToolPath{end+1} = toolRefVectorNow;
             end
@@ -342,7 +342,7 @@ function [ ...
         toolRefVectors = rotPolygon(toolRefVectors, cos(tanAngle), sin(tanAngle), ...
             refPoint);
         if isRightGear
-            rightRoughToolPathExtra = toolRefVectors;
+            rightRoughingToolPathExtra = toolRefVectors;
         else
             leftRoughingToolPathExtra = toolRefVectors;
         end
@@ -365,7 +365,7 @@ function [ ...
             toolRefVectorNow = fun(toolRefVectorNow);
             cutAddProfilePlot();
             if isRightGear
-                rightRoughToolPath{end+1} = toolRefVectorNow;
+                rightRoughingToolPath{end+1} = toolRefVectorNow;
             else
                 leftRoughingToolPath{end+1} = toolRefVectorNow;
             end
@@ -375,11 +375,11 @@ function [ ...
             toolCutNow = toolCutNow + vect;
             toolRefVectorNow = toolRefVectorNow + vect;
             cutAddProfilePlot();
-%            if isRightGear
-%                rightRoughToolPath{end+1} = toolRefVectorNow;
-%            else
-%                leftRoughingToolPath{end+1} = toolRefVectorNow;
-%            end
+            if isRightGear
+                rightRoughingToolPath{end+1} = toolRefVectorNow;
+            else
+                leftRoughingToolPath{end+1} = toolRefVectorNow;
+            end
         end
 
         function cutAddProfilePlot ()
