@@ -8,16 +8,18 @@ function [ ...
         ] = generation_v2 (filename, blankDia)
     addpath(genpath('./'))
     a = 15;                                     % Center distance
-    pAngle = 30*pi/180;                         % Pressure Angle
-    module = 1;                                 % Module
+    pAngle = 25*pi/180;                         % Pressure Angle
+    module = 1.2;                                 % Module
     pitch = pi * module;                        % Curve pitch
-    addDist = 0.9 * module;                     % Addendum distance
-    dedDist = 1.1 * module;                     % Dedendum distance
+    %addDist = 0.84 * module;                     % Addendum distance
+    %dedDist = 1.02 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
     errTol = 1e-4;                              % Error checking tolerance
     angTol = 1*pi/180;                          % Angular tolerance, rad
-    toolTipRadius = 0.2;                        % Forming tool radius
-    toolFullAngle = 45*pi/180;
+    toolTipRadius = 0.5;                        % Forming tool radius
+    addDist = (pitch/4 - toolTipRadius*cos(pAngle))/tan(pAngle)
+    dedDist = addDist + toolTipRadius*(1 - sin(pAngle)) + 0.01
+    toolFullAngle = 0.001*pi/180;
     toolFluteLength = 5;
     toolDiameter = 3.175;
     toolStickOut = 15;
@@ -164,7 +166,7 @@ function [ ...
 
     v = VideoWriter('millingOperations.avi', 'Motion JPEG AVI');
     set(v, 'FrameRate', 10, 'Quality', 100);
-%    open(v);
+    open(v);
 
     show = @(x) set(x, 'Visible', 'on');
     hide = @(x) set(x, 'Visible', 'off');
@@ -327,7 +329,7 @@ function [ ...
             flip = true;
         end
         toolRefVectors = [...
-            (roughToolDia/2 - addDist/cos(pAngle)) * [cos(pAngle) sin(pAngle)];
+            -addDist * [1 tan(pAngle)] + roughToolDia/2 * [cos(pAngle) sin(pAngle)];
             0, 0;
             -addDist * [1 tan(pAngle)] - [0 roughToolDia/2];
             0, 0];
@@ -335,9 +337,10 @@ function [ ...
         toolRefVectors(4,:) = toolRefVectors(3,:) + [1 0];
         if flip
             toolRefVectors(:,2) = -toolRefVectors(:,2);
-            if rackZigZagComped
-                toolRefVectors = toolRefVectors + [0 pitch/2];
-            end
+            %if rackZigZagComped
+            %    toolRefVectors = toolRefVectors + [0 pitch/2];
+            %end
+            toolRefVectors = toolRefVectors + [0 (rackZigZag(end,2) - pitch/4 - pitchArcLengths(end))]
         end
         toolRefVectors = rotPolygon(toolRefVectors, cos(tanAngle), sin(tanAngle), ...
             refPoint);
@@ -352,7 +355,7 @@ function [ ...
             toolCutNow = alignToolToRefVec(toolCut, toolRefVectorNow);
             cutAddProfilePlot();
             for delay = 1:20
-%                writeVideo(v, getframe(ax));
+                writeVideo(v, getframe(ax));
             end
 %            pause(1)
         end
@@ -410,7 +413,7 @@ function [ ...
                 replot(tch, fun(toolCutNow));
                 replot(trh, fun(toolRefVectorNow));
                 drawnow
-%                writeVideo(v, getframe(ax));
+                %writeVideo(v, getframe(ax));
                 %pause(0.1)
             end
         end
@@ -429,7 +432,7 @@ function [ ...
                     cos(rightPolarAngles(i)), ...
                     -sin(rightPolarAngles(i))));
             drawnow
-%            writeVideo(v, getframe(ax));
+            writeVideo(v, getframe(ax));
         end
     end
 
@@ -539,7 +542,7 @@ function [ ...
                             replot(tch, fun(toolCutNow{end}));
                             replot(trh, fun(toolRefVectorNow{end}));
                             drawnow
-%                            writeVideo(v, getframe(ax));
+                            writeVideo(v, getframe(ax));
                             toolCutNow(end) = [];
                             toolRefVectorNow(end) = [];
                         end
