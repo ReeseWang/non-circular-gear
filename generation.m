@@ -1,6 +1,6 @@
 addpath(genpath('./'))
 a = 15;                                         % Center distance
-pAngle = 20*pi/180;                           % Pressure Angle
+pAngle = 30*pi/180;                           % Pressure Angle
 module = 1;                                     % Module
 pitch = pi * module;                            % Curve pitch
 addDist = 0.9 * module;                         % Addendum distance
@@ -193,6 +193,8 @@ followerRack = [temp{1}{1} temp{2}{1}];
 contactLine = a * [-sin(pAngle) cos(pAngle)];
 contactLine = [contactLine; -contactLine];
 contactPoints = (0:pitch:pitchLengths(end))' * cos(pAngle) * [-sin(pAngle) cos(pAngle)];
+
+followerRack = followerRack + 0.5 * [cos(pAngle) sin(pAngle)];
 if dfReverse
     temp = [-driverRack(:,1) driverRack(:,2)];
     driverRack = [-followerRack(:,1) followerRack(:,2)];
