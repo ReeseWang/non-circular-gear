@@ -15,14 +15,14 @@ function [ ...
     dedDist = 1.1 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
     errTol = 1e-4;                              % Error checking tolerance
-    angTol = 1*pi/180;                          % Angular tolerance, rad
+    angTol = 0.5*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.2;                        % Forming tool radius
     toolFullAngle = 45*pi/180;
     toolFluteLength = 5;
     toolDiameter = 3.175;
     toolStickOut = 15;
     cutSteps = 2;                               % How many steps to simulate a rack using tip tool
-    cutDepth = 0.2;                             % Z step
+    cutDepth = 0.04;                             % Z step
     rightIsDriver = true;                           % Reverse the role of driver and follower (pos don't change)
     machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
     leftRotateMargin = 1*pi/180;                % Rotate margin of driver
