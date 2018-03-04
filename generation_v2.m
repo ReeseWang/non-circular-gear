@@ -9,7 +9,7 @@ function [ ...
     addpath(genpath('./'))
     a = 15;                                     % Center distance
     pAngle = 25*pi/180;                         % Pressure Angle
-    module = 1.2;                                 % Module
+    module = 1.1;                                 % Module
     pitch = pi * module;                        % Curve pitch
     %addDist = 0.84 * module;                     % Addendum distance
     %dedDist = 1.02 * module;                     % Dedendum distance
@@ -18,9 +18,9 @@ function [ ...
     angTol = 1*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.5;                        % Forming tool radius
     addDist = (pitch/4 - toolTipRadius*cos(pAngle))/tan(pAngle)
-    dedDist = addDist + toolTipRadius*(1 - sin(pAngle)) + 0.01
+    dedDist = addDist + toolTipRadius*(1 - sin(pAngle))
     toolFullAngle = 0.001*pi/180;
-    toolFluteLength = 5;
+    toolFluteLength = 3.5;
     toolDiameter = 3.175;
     toolStickOut = 15;
     cutSteps = 2;                               % How many steps to simulate a rack using tip tool
@@ -29,7 +29,7 @@ function [ ...
     machineRef = true;                          % Demo in machine reference frame to avoid audience confusion.
     leftRotateMargin = 1*pi/180;                % Rotate margin of driver
 %    blankDia = 30;                              % Blank material diameter
-    roughToolDia = 10;
+    roughToolDia = 4;
     roughToolFluteLength = 50;
     angleStep = 1*pi/180;
 
@@ -39,6 +39,7 @@ function [ ...
     rightRoughingToolPath = {};
     rightRoughingToolPathExtra = {};
     rightTeethToolPath  = {};
+    genVideo = false;
 
     %% Read input, interpolate, and generate pitch curves.
 %    filename = 'fp.txt';
@@ -164,9 +165,11 @@ function [ ...
     rc = rectangle('Position', [-1 -1 2 2]*a/10 + [a 0 0 0], 'Curvature', [1 1], 'Visible', 'off');
     pause(1)
 
-    v = VideoWriter('millingOperations.avi', 'Motion JPEG AVI');
-    set(v, 'FrameRate', 10, 'Quality', 100);
-    open(v);
+    if genVideo
+        v = VideoWriter('millingOperations.avi', 'Motion JPEG AVI');
+        set(v, 'FrameRate', 10, 'Quality', 100);
+        open(v);
+    end
 
     show = @(x) set(x, 'Visible', 'on');
     hide = @(x) set(x, 'Visible', 'off');
@@ -283,9 +286,9 @@ function [ ...
             distToGo = norm(edge(2,:) - edge(1,:));
             moveVector = normr(edge(2,:) - edge(1,:));
             while true
-                if distToGo > roughToolDia
-                    moveTool(moveVector * roughToolDia);
-                    distToGo = distToGo - roughToolDia;
+                if distToGo > (0.99 * roughToolDia)
+                    moveTool(moveVector * 0.99 * roughToolDia);
+                    distToGo = distToGo - 0.99 * roughToolDia;
                 else
                     moveTool(moveVector * distToGo);
                     break
@@ -337,10 +340,9 @@ function [ ...
         toolRefVectors(4,:) = toolRefVectors(3,:) + [1 0];
         if flip
             toolRefVectors(:,2) = -toolRefVectors(:,2);
-            %if rackZigZagComped
-            %    toolRefVectors = toolRefVectors + [0 pitch/2];
-            %end
             toolRefVectors = toolRefVectors + [0 (rackZigZag(end,2) - pitch/4 - pitchArcLengths(end))]
+        else
+            toolRefVectors = toolRefVectors + [0 pitchArcLengths(1)]
         end
         toolRefVectors = rotPolygon(toolRefVectors, cos(tanAngle), sin(tanAngle), ...
             refPoint);
@@ -355,7 +357,9 @@ function [ ...
             toolCutNow = alignToolToRefVec(toolCut, toolRefVectorNow);
             cutAddProfilePlot();
             for delay = 1:20
-                writeVideo(v, getframe(ax));
+                if genVideo
+                    writeVideo(v, getframe(ax));
+                end
             end
 %            pause(1)
         end
@@ -413,7 +417,9 @@ function [ ...
                 replot(tch, fun(toolCutNow));
                 replot(trh, fun(toolRefVectorNow));
                 drawnow
-                %writeVideo(v, getframe(ax));
+                if genVideo
+                    writeVideo(v, getframe(ax));
+                end
                 %pause(0.1)
             end
         end
@@ -432,7 +438,9 @@ function [ ...
                     cos(rightPolarAngles(i)), ...
                     -sin(rightPolarAngles(i))));
             drawnow
-            writeVideo(v, getframe(ax));
+            if genVideo
+                writeVideo(v, getframe(ax));
+            end
         end
     end
 
@@ -542,7 +550,9 @@ function [ ...
                             replot(tch, fun(toolCutNow{end}));
                             replot(trh, fun(toolRefVectorNow{end}));
                             drawnow
-                            writeVideo(v, getframe(ax));
+                            if genVideo 
+                                writeVideo(v, getframe(ax));
+                            end
                             toolCutNow(end) = [];
                             toolRefVectorNow(end) = [];
                         end
