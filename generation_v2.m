@@ -14,6 +14,7 @@ function [ ...
     %addDist = 0.84 * module;                     % Addendum distance
     %dedDist = 1.02 * module;                     % Dedendum distance
     posLimiterLeng = 3;                         % Position limiter length
+    nonWorkingFaceCleariance = 0.04;
     errTol = 1e-4;                              % Error checking tolerance
     angTol = 1*pi/180;                          % Angular tolerance, rad
     toolTipRadius = 0.5;                        % Forming tool radius
@@ -39,7 +40,7 @@ function [ ...
     rightRoughingToolPath = {};
     rightRoughingToolPathExtra = {};
     rightTeethToolPath  = {};
-    genVideo = false;
+    genVideo = true;
 
     %% Read input, interpolate, and generate pitch curves.
 %    filename = 'fp.txt';
@@ -152,7 +153,7 @@ function [ ...
         rackZigZag(:,1) = - rackZigZag(:,1);
     end
 
-    f = figure('OuterPosition', [0 0 1200 800]);
+    f = figure('units', 'normalized', 'OuterPosition', [0 0 1 1]);
     ax = axes(f);
     set(ax, 'XLim', [-a 2*a], 'YLim', [-a a], 'YLimMode', 'manual', 'DataAspectRatio', [1 1 1])
     hold all
@@ -468,6 +469,18 @@ function [ ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
             toolRefVectorThisPass = rotPolygon([0 0; 0 1], sin(cutOffsets(offsIdx,1)), ...
                 -cos(cutOffsets(offsIdx,1)), [0 cutOffsets(offsIdx,2)]);
+
+            if (isRightGear && rightIsDriver) || (~isRightGear && ~rightIsDriver)
+                offsetForCleariance = nonWorkingFaceCleariance * 0.5 * ...
+                    csc(2*pAngle) * [-cos(pAngle) -sin(pAngle)];
+            else
+                offsetForCleariance = nonWorkingFaceCleariance * 0.5 * ...
+                    csc(2*pAngle) * [-cos(pAngle) sin(pAngle)];
+            end
+            toolCutThisPass = toolCutThisPass + offsetForCleariance;
+            toolNonCutThisPass = toolNonCutThisPass + offsetForCleariance;
+            toolRefVectorThisPass = toolRefVectorThisPass + offsetForCleariance;
+
             idxTeeth = 0;
             for i = iRange  % For every tooth
                 idxTeeth = idxTeeth + 1;
