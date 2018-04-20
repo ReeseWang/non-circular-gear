@@ -1,20 +1,20 @@
 zSafe = 60.0;
-roughToolNumber = '0606';
-roughSpindleSpeed = 3000;
-roughFeedRate = 100;
-roughZOffsets = [9 6 3 0];
-blankDia = 30;                                  % Blank material diameter
-teethToolNumber = '0808';
+roughToolNumber = '0404';
+roughSpindleSpeed = 5000;
+roughFeedRate = 600;
+roughZOffsets = [10 5 0];
+blankDia = 25;                                  % Blank material diameter
+teethToolNumber = '0606';
 teethToolDia = 3.175;
-teethFeedRate = 600;
-teethSpindleSpeed = 3000;
+teethFeedRate = 2000;
+teethSpindleSpeed = 5000;
 roughYCleariance = 5;
 %roughXCoords = -4:0.8:5;
-roughXCoords = -3;
+roughXCoords = -1;
 
-teethXRange = [-2.55 -5.55];
+teethXRange = roughXCoords + 1.1 * [1 -1];
 
-gCodePrefix = 'G28 X0 Y0 Z0 CM0 M25\n';
+gCodePrefix = 'M05\nG97\nM25\nCM 0.0\nG98\n';
 
 if regen
     [ ...
@@ -27,13 +27,13 @@ if regen
         ] = generation_v2('fp.txt', blankDia);
 end
 
-roughingCode('3001', leftRoughingToolPath, leftRoughingToolPathExtra, gCodePrefix, ...
+roughingCode('O4502', leftRoughingToolPath, leftRoughingToolPathExtra, "%%\nO4502\n" + gCodePrefix, ...
     roughToolNumber, roughSpindleSpeed, zSafe, roughZOffsets, roughXCoords, blankDia, roughYCleariance, roughFeedRate);
-roughingCode('3003', rightRoughingToolPath, rightRoughingToolPathExtra, gCodePrefix, ...
+roughingCode('O4504', rightRoughingToolPath, rightRoughingToolPathExtra, "%%\nO4504\n" + gCodePrefix, ...
     roughToolNumber, roughSpindleSpeed, zSafe, roughZOffsets, roughXCoords, blankDia, roughYCleariance, roughFeedRate);
-teethCode('3002', leftTeethToolPath, gCodePrefix, teethToolNumber, ...
+teethCode('O4503', leftTeethToolPath, "%%\nO4503\n" + gCodePrefix, teethToolNumber, ...
     teethSpindleSpeed, zSafe, teethXRange, teethFeedRate, teethToolDia);
-teethCode('3004', rightTeethToolPath, gCodePrefix, teethToolNumber, ...
+teethCode('O4505', rightTeethToolPath, "%%\nO4505\n" + gCodePrefix, teethToolNumber, ...
     teethSpindleSpeed, zSafe, teethXRange, teethFeedRate, teethToolDia);
 
 function roughingCode ( filename, toolPath, toolPathExtra, gCodePrefix, toolNumber, ...
@@ -55,15 +55,15 @@ function roughingCode ( filename, toolPath, toolPathExtra, gCodePrefix, toolNumb
                 zSafe + zOffset, ...
                 ACoord(A, true));
             fprintf(f, 'G1 X%.3f F8000\n', YZ(2) + zOffset);
-            fprintf(f, 'G93\n');                        % Inverse time feed rate mode
-            fprintf(f, 'G1 Y%.3f F%.3f\n', YZ(1), feedRate/(YZ(1) + blankDia/2 + yCleariance));
+            %fprintf(f, 'G93\n');                        % Inverse time feed rate mode
+            fprintf(f, 'G1 Y%.3f F%.3f\n', YZ(1), feedRate);%/(YZ(1) + blankDia/2 + yCleariance));
 
             for j = 2:length(toolPath)
                 [YZ, A] = toMachineRef(toolPath{j});
-                fprintf(f, 'Y%.3f X%.3f %s F%.3f; %d\n', ...
-                    YZ(1), YZ(2) + zOffset, ACoord(A), feedRate/equvDist(toolPath{j-1}, toolPath{j}, blankDia/2), j);
+                fprintf(f, 'Y%.3f X%.3f %s F%.3f\n', ...
+                    YZ(1), YZ(2) + zOffset, ACoord(A), feedRate);%/equvDist(toolPath{j-1}, toolPath{j}, blankDia/2));
             end
-            fprintf(f, 'G94\n');                        % Inverse time feed rate mode
+            %fprintf(f, 'G94\n');                        % Inverse time feed rate mode
 
             fprintf(f, 'G1 X%.3f F8000\n', zSafe + zOffset);
 
@@ -79,7 +79,7 @@ function roughingCode ( filename, toolPath, toolPathExtra, gCodePrefix, toolNumb
             end
         end
     end
-    fprintf(f, 'G94\nM5\nM9\nM2');
+    fprintf(f, 'G28 U0 V0 W0\nM26\nM205\nM9\nM99\n%%');
     fclose(f);
 end
 
@@ -109,7 +109,7 @@ function teethCode ( filename, toolPath, gCodePrefix, toolNumber, ...
 
             for idxCut = 1:length(toolPath{idxPass}{idxTooth})
                 [YZ, A] = toMachineRef(toolPath{idxPass}{idxTooth}{idxCut});
-                fprintf(f, 'G1 Z%.3f Y%.3f X%.3f %s F600\n', ...
+                fprintf(f, 'G1 Z%.3f Y%.3f X%.3f %s F600.0\n', ...
                     xRange(1), YZ(1), YZ(2), ACoord(A));
                 fprintf(f, 'Z%.3f F%.3f\n', xRange(2), feedRate);
                 if idxCut ~= length(toolPath{idxPass}{idxTooth})
@@ -120,7 +120,7 @@ function teethCode ( filename, toolPath, gCodePrefix, toolNumber, ...
             end
         end
     end
-    fprintf(f, 'M5\nM9\nM2');
+    fprintf(f, 'G28 U0exi V0 W0\nM26\nM205\nM9\nM99\n%%');
     fclose(f);
 end
 
